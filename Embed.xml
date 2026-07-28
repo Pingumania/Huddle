@@ -7,7 +7,6 @@
 	<Script file='Modules/Frame.lua'/>
 	<Script file='Modules/Localization.lua'/>
 	<Script file='Modules/SavedVariables.lua'/>
-	<Script file='Modules/UnitAura.lua'/>
 	<Script file='Modules/Format.lua'/>
 	<Script file='Modules/Output.lua'/>
 </Ui>
