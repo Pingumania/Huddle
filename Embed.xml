@@ -1,18 +1,18 @@
 <Ui>
-	<Script file='Core/Version.lua'/>
-	<Script file='Core/Compat.lua'/>
-	<Script file='Core/EventHandler.lua'/>
-	<Script file='Core/AddOn.lua'/>
-	<Script file='Core/SlashHandler.lua'/>
-	<Script file='Core/Defer.lua'/>
-	<Script file='Core/Hide.lua'/>
-	<Script file='Core/Localization.lua'/>
-	<Script file='Core/SavedVariables.lua'/>
-	<Script file='Core/UnitAura.lua'/>
-	<Script file='Core/Moveable.lua'/>
-	<Script file='Core/Backdrop.lua'/>
-	<Script file='Core/Color.lua'/>
-	<Script file='Core/Print.lua'/>
-	<Script file='Core/Coordinates.lua'/>
-	<Script file='Core/Debug.lua'/>
+	<Script file='Modules/Version.lua'/>
+	<Script file='Modules/Compat.lua'/>
+	<Script file='Modules/EventHandler.lua'/>
+	<Script file='Modules/AddOn.lua'/>
+	<Script file='Modules/SlashHandler.lua'/>
+	<Script file='Modules/Defer.lua'/>
+	<Script file='Modules/Hide.lua'/>
+	<Script file='Modules/Localization.lua'/>
+	<Script file='Modules/SavedVariables.lua'/>
+	<Script file='Modules/UnitAura.lua'/>
+	<Script file='Modules/Moveable.lua'/>
+	<Script file='Modules/Backdrop.lua'/>
+	<Script file='Modules/Color.lua'/>
+	<Script file='Modules/Print.lua'/>
+	<Script file='Modules/Coordinates.lua'/>
+	<Script file='Modules/Debug.lua'/>
 </Ui>
