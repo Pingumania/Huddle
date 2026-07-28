@@ -1,0 +1,18 @@
+<Ui>
+	<Script file='Core/Version.lua'/>
+	<Script file='Core/Compat.lua'/>
+	<Script file='Core/EventHandler.lua'/>
+	<Script file='Core/AddOn.lua'/>
+	<Script file='Core/SlashHandler.lua'/>
+	<Script file='Core/Defer.lua'/>
+	<Script file='Core/Hide.lua'/>
+	<Script file='Core/Localization.lua'/>
+	<Script file='Core/SavedVariables.lua'/>
+	<Script file='Core/UnitAura.lua'/>
+	<Script file='Core/Moveable.lua'/>
+	<Script file='Core/Backdrop.lua'/>
+	<Script file='Core/Color.lua'/>
+	<Script file='Core/Print.lua'/>
+	<Script file='Core/Coordinates.lua'/>
+	<Script file='Core/Debug.lua'/>
+</Ui>
