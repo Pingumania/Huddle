@@ -17,7 +17,7 @@ local callbacks = {}
 
 local unitEventValidator = CreateFrame('Frame')
 local function IsUnitEventValid(event, unit)
-	-- C_EventUntils.IsEventValid doesn't cover unit events, so we'll have to do this the old fashioned way
+	-- C_EventUtils.IsEventValid doesn't cover unit events, so we'll have to do this the old fashioned way
 	local isValid = pcall(unitEventValidator.RegisterUnitEvent, unitEventValidator, event, unit)
 	if isValid then
 		unitEventValidator:UnregisterEvent(event)
@@ -260,10 +260,8 @@ function EventMixin:TriggerUnitEvent(event, unit, ...)
 	end
 end
 
--- expose mixin
 A.EventMixin = EventMixin
 
--- anonymous event registration
 A = setmetatable(A, {
 	__newindex = function(t, key, value)
 		if key == 'OnLoad' then

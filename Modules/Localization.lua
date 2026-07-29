@@ -1,6 +1,5 @@
 local _, A = ...
 
--- localization
 local localizations = {}
 local locale = GetLocale()
 

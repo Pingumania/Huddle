@@ -16,11 +16,16 @@ function A:Debug(...)
 	end
 end
 
---[[ namespace:AddToDevTool(_data_) ![](https://img.shields.io/badge/function-blue)
-Sends `data` to [DevTool](https://www.curseforge.com/wow/addons/devtool) for inspection, if it's installed. No-ops otherwise.
+--[[ namespace:DumpUI(_value_) ![](https://img.shields.io/badge/function-blue)
+Sends `value` to [DevTool](https://www.curseforge.com/wow/addons/devtool) for inspection, if it's installed.
+Falls back to Blizzard's own table inspector window otherwise.
 --]]
-function A:AddToDevTool(data)
+function A:DumpUI(value)
 	if DevTool and DevTool.AddData then
-		DevTool:AddData(data)
+		DevTool:AddData(value)
+		return
 	end
+
+	C_AddOns.LoadAddOn('Blizzard_DebugTools')
+	DisplayTableInspectorWindow(value)
 end

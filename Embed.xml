@@ -1,12 +1,13 @@
 <Ui>
 	<Script file='Modules/Version.lua'/>
+	<Script file='Modules/Util.lua'/>
 	<Script file='Modules/EventHandler.lua'/>
 	<Script file='Modules/AddOn.lua'/>
 	<Script file='Modules/SlashHandler.lua'/>
 	<Script file='Modules/Defer.lua'/>
 	<Script file='Modules/Frame.lua'/>
 	<Script file='Modules/Localization.lua'/>
-	<Script file='Modules/SavedVariables.lua'/>
 	<Script file='Modules/Format.lua'/>
 	<Script file='Modules/Output.lua'/>
+	<Script file='Modules/Settings.lua'/>
 </Ui>
