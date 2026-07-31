@@ -1,7 +1,22 @@
 local addonName, A = ...
 
+local function refreshVisibleSettings()
+	-- a row is only re-evaluated when its *immediate* parent's value changes, so rows nested deeper
+	-- never hear about an ancestor toggling; re-evaluate everything currently on screen instead
+	local settingsList = SettingsPanel and SettingsPanel:GetSettingsList()
+	local scrollBox = settingsList and settingsList.ScrollBox
+	if scrollBox then
+		scrollBox:ForEachFrame(function(frame)
+			if frame.EvaluateState then
+				frame:EvaluateState()
+			end
+		end)
+	end
+end
+
 local function onSettingChanged(setting, value)
 	A:TriggerOptionCallback(setting.variableKey, value)
+	refreshVisibleSettings()
 end
 
 local createCanvas
@@ -168,19 +183,24 @@ local function registerSetting(category, savedvariable, info)
 	return initializer
 end
 
-local function isSettingEnabled(parentInitializer)
-	return not not parentInitializer:GetSetting():GetValue()
-end
-
-local function alwaysEnabled()
+local function isChainEnabled(links, initializers, key)
+	local link = links[key]
+	while link do
+		if link.gated then
+			local setting = initializers[link.key]:GetSetting()
+			if not (setting and setting:GetValue()) then
+				return false
+			end
+		end
+		link = links[link.key]
+	end
 	return true
 end
 
 local function registerSettingsList(category, layout, savedvariable, settings)
 	local keys = {}
 	local initializers = {}
-	local dependents = {}
-	local children = {}
+	local links = {}
 	for index, setting in next, settings do
 		if setting.type == 'header' then
 			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(setting.title, setting.tooltip))
@@ -192,27 +212,51 @@ local function registerSettingsList(category, layout, savedvariable, settings)
 			initializers[setting.key] = initializer
 
 			if setting.requires then
-				dependents[setting.key] = setting.requires
+				links[setting.key] = {key = setting.requires, gated = true, indent = true}
+			elseif setting.gatedBy then
+				links[setting.key] = {key = setting.gatedBy, gated = true}
 			elseif setting.parent then
-				children[setting.key] = setting.parent
+				links[setting.key] = {key = setting.parent, indent = true}
 			end
 		end
 	end
-	return keys, initializers, dependents, children
+	return keys, initializers, links
 end
 
-local function applyDependencies(settings, keys, initializers, dependents, children)
-	for key, requires in next, dependents do
-		assert(not not keys[requires], string.format("setting '%s' can't depend on invalid setting '%s'", key, requires))
-		assert(settings[keys[requires]].type == 'toggle', string.format("setting '%s' can't depend on a non-toggle setting", key))
+local function applyDependencies(settings, keys, initializers, links)
+	for key, link in next, links do
+		assert(not not keys[link.key], string.format("setting '%s' can't depend on invalid setting '%s'", key, link.key))
 
-		initializers[key]:SetParentInitializer(initializers[requires], GenerateClosure(isSettingEnabled, initializers[requires]))
+		if link.gated then
+			assert(settings[keys[link.key]].type == 'toggle', string.format("setting '%s' can't depend on a non-toggle setting", key))
+		end
+
+		-- the chain is walked on every evaluation, so a cycle would hang the client
+		local steps = 0
+		local ancestor = links[link.key]
+		while ancestor do
+			steps = steps + 1
+			assert(steps <= 16, string.format("setting '%s' has a circular dependency", key))
+			ancestor = links[ancestor.key]
+		end
 	end
 
-	for key, parent in next, children do
-		assert(not not keys[parent], string.format("setting '%s' can't depend on invalid setting '%s'", key, parent))
+	for key, link in next, links do
+		local initializer = initializers[key]
 
-		initializers[key]:SetParentInitializer(initializers[parent], alwaysEnabled)
+		-- only the immediate parent is consulted natively, so walk the whole chain instead,
+		-- otherwise a setting nested below a disabled ancestor stays enabled
+		local predicate = function()
+			return isChainEnabled(links, initializers, key)
+		end
+
+		if link.indent then
+			initializer:SetParentInitializer(initializers[link.key], predicate)
+		else
+			-- no parent initializer means no indent, which is how Blizzard's own settings let a
+			-- single toggle grey out a whole section without nesting it (see "Combat Audio Alerts")
+			initializer:AddModifyPredicate(predicate)
+		end
 	end
 end
 
@@ -227,16 +271,16 @@ local function registerSettings(savedvariable, settings)
 		_G[savedvariable] = {}
 	end
 
-	local keys, initializers, dependents, children = registerSettingsList(category, layout, savedvariable, settings)
-	applyDependencies(settings, keys, initializers, dependents, children)
+	local keys, initializers, links = registerSettingsList(category, layout, savedvariable, settings)
+	applyDependencies(settings, keys, initializers, links)
 
 	-- sub-categories
 	if A.settingsChildren then
 		for _, info in next, A.settingsChildren do
 			if info.settings then
 				local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
-				local childKeys, childInitializers, childDependents, childChildren = registerSettingsList(child, childLayout, savedvariable, info.settings)
-				applyDependencies(info.settings, childKeys, childInitializers, childDependents, childChildren)
+				local childKeys, childInitializers, childLinks = registerSettingsList(child, childLayout, savedvariable, info.settings)
+				applyDependencies(info.settings, childKeys, childInitializers, childLinks)
 			elseif info.callback then
 				local frame, canvas = createCanvas(info.name)
 				Settings.RegisterCanvasLayoutSubcategory(category, frame, info.name)
@@ -294,6 +338,7 @@ A:RegisterSettings('MyAddOnDB', {
             {value = 'key3', label = 'Third option'},
         },
         parent = 'mySlider', -- (optional) set another setting as its parent (indents this setting)
+        gatedBy = 'myToggle', -- (optional) like "requires", but without indenting this setting
     },
     {
         key = 'myColor',
