@@ -6,6 +6,7 @@
 	<Script file='Modules/SlashHandler.lua'/>
 	<Script file='Modules/Defer.lua'/>
 	<Script file='Modules/Frame.lua'/>
+	<Script file='Modules/PixelPerfect.lua'/>
 	<Script file='Modules/Localization.lua'/>
 	<Script file='Modules/Format.lua'/>
 	<Script file='Modules/Output.lua'/>
