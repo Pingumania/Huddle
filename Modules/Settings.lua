@@ -371,9 +371,19 @@ function A:RegisterSettings(savedvariable, settings)
 		self.settingsChildren = {}
 	end
 
-	A:ContinueOnAddOnLoaded(addonName, function()
+	-- deliberately not ContinueOnAddOnLoaded: going through our own event system keeps this
+	-- ordered against namespace:OnLoad, which would otherwise be a race between two event systems
+	local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
+	if isReady then
 		registerSettings(savedvariable, settings)
-	end)
+	else
+		A:RegisterEvent('ADDON_LOADED', function(_, name)
+			if name == addonName then
+				registerSettings(savedvariable, settings)
+				return true -- unregister
+			end
+		end)
+	end
 end
 
 --[[ namespace:RegisterSubSettings(_name_, _settings_) ![](https://img.shields.io/badge/function-blue)
@@ -656,9 +666,17 @@ do
 		A:ArgCheck(savedvariable, 1, 'string')
 		A:ArgCheck(settings, 2, 'table')
 
-		A:ContinueOnAddOnLoaded(addonName, function()
+		local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
+		if isReady then
 			registerMapSettings(savedvariable, settings)
-		end)
+		else
+			A:RegisterEvent('ADDON_LOADED', function(_, name)
+				if name == addonName then
+					registerMapSettings(savedvariable, settings)
+					return true -- unregister
+				end
+			end)
+		end
 	end
 end
 
