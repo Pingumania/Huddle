@@ -4,9 +4,27 @@ local _, A = ...
 local hidden = CreateFrame('Frame')
 hidden:Hide()
 
+local function resolve(object, ...)
+	if type(object) == 'string' then
+		object = _G[object]
+	end
+
+	if ... then
+		-- iterate through arguments, they're children referenced by key
+		for index = 1, select('#', ...) do
+			object = object and object[select(index, ...)]
+		end
+	end
+
+	return object
+end
+
 --[[ namespace:Hide(_object_[, _child_,...]) ![](https://img.shields.io/badge/function-blue)
 Forcefully hide an `object`, or its `child`.
 It will recurse down to the last child if provided.
+
+This is permanent — it also blocks the object being reparented and silences its events. Use
+`namespace:HideFrame` for something that has to be shown again later.
 
 Usage:
 ```lua
@@ -16,16 +34,7 @@ namespace:Hide(someFrame, 'ResetButton')
 ```
 --]]
 function A:Hide(object, ...)
-	if type(object) == 'string' then
-		object = _G[object]
-	end
-
-	if ... then
-		-- iterate through arguments, they're children referenced by key
-		for index = 1, select('#', ...) do
-			object = object[select(index, ...)]
-		end
-	end
+	object = resolve(object, ...)
 
 	if object then
 		object:SetParent(hidden)
@@ -34,6 +43,43 @@ function A:Hide(object, ...)
 		if object.UnregisterAllEvents then
 			object:UnregisterAllEvents()
 		end
+	end
+end
+
+-- weak keys, so parking a frame here doesn't keep it alive
+local parents = setmetatable({}, { __mode = 'k' })
+
+--[[ namespace:HideFrame(_object_[, _child_,...]) ![](https://img.shields.io/badge/function-blue)
+Hides an `object`, or its `child`, by reparenting it, remembering where it came from so
+`namespace:ShowFrame` can put it back. Use this over `namespace:Hide` for anything the user can
+toggle back on.
+
+Usage:
+```lua
+namespace:HideFrame('BagsBar')
+```
+--]]
+function A:HideFrame(object, ...)
+	object = resolve(object, ...)
+	if not object then return end
+
+	if parents[object] == nil then
+		-- false rather than nil, so a parentless object isn't looked up again
+		parents[object] = object:GetParent() or false
+	end
+
+	object:SetParent(hidden)
+end
+
+--[[ namespace:ShowFrame(_object_[, _child_,...]) ![](https://img.shields.io/badge/function-blue)
+Reparents an `object`, or its `child`, back to where `namespace:HideFrame` found it.
+--]]
+function A:ShowFrame(object, ...)
+	object = resolve(object, ...)
+
+	local parent = object and parents[object]
+	if parent then
+		object:SetParent(parent)
 	end
 end
 
