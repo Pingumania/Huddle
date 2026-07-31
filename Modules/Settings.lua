@@ -1,22 +1,7 @@
 local addonName, A = ...
 
-local function refreshVisibleSettings()
-	-- a row is only re-evaluated when its *immediate* parent's value changes, so rows nested deeper
-	-- never hear about an ancestor toggling; re-evaluate everything currently on screen instead
-	local settingsList = SettingsPanel and SettingsPanel:GetSettingsList()
-	local scrollBox = settingsList and settingsList.ScrollBox
-	if scrollBox then
-		scrollBox:ForEachFrame(function(frame)
-			if frame.EvaluateState then
-				frame:EvaluateState()
-			end
-		end)
-	end
-end
-
 local function onSettingChanged(setting, value)
 	A:TriggerOptionCallback(setting.variableKey, value)
-	refreshVisibleSettings()
 end
 
 local createCanvas
@@ -260,12 +245,27 @@ local function applyDependencies(settings, keys, initializers, links)
 			return isChainEnabled(links, initializers, key)
 		end
 
+		-- an indented row gets a parent initializer, which also registers the value-changed
+		-- callback for that parent. An unindented one deliberately has no parent, so nothing of
+		-- ours ends up being called from inside Blizzard's Init
+		local ancestor = link
 		if link.indent then
 			initializer:SetParentInitializer(initializers[link.key], predicate)
+			ancestor = links[link.key]
 		else
-			-- no parent initializer means no indent, which is how Blizzard's own settings let a
-			-- single toggle grey out a whole section without nesting it (see "Combat Audio Alerts")
 			initializer:AddModifyPredicate(predicate)
+		end
+
+		-- watch every remaining gate in the chain, otherwise toggling one two links up leaves this
+		-- row looking enabled. Despite the name this registers against SettingsCallbackRegistry,
+		-- which settings trigger on their own variable just like cvars do
+		while ancestor do
+			local setting = initializers[ancestor.key]:GetSetting()
+			if setting then
+				initializer:AddEvaluateStateCVar(setting:GetVariable())
+			end
+
+			ancestor = links[ancestor.key]
 		end
 	end
 end
