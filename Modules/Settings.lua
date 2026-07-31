@@ -123,6 +123,9 @@ local function registerSetting(category, savedvariable, info)
 	A:ArgCheck(info.type, 3, 'string')
 	assert(info.default ~= nil, 'default must be set')
 
+	A.optionVariables = A.optionVariables or {}
+	A.optionVariables[info.key] = savedvariable
+
 	local uniqueKey = savedvariable .. '_' .. info.key
 	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable], type(info.default), info.title, info.default)
 
@@ -314,8 +317,6 @@ A:RegisterSettings('MyAddOnDB', {
 function A:RegisterSettings(savedvariable, settings)
 	A:ArgCheck(savedvariable, 1, 'string')
 	A:ArgCheck(settings, 2, 'table')
-	assert(not self.registeredVariables, "can't register settings more than once")
-	self.registeredVariables = savedvariable
 
 	if not self.settingsChildren then
 		self.settingsChildren = {}
@@ -392,9 +393,10 @@ Returns the value for the given option `key`.
 --]]
 function A:GetOption(key)
 	A:ArgCheck(key, 1, 'string')
-	assert(A:AreOptionsLoaded(), "options aren't loaded")
-	assert(_G[self.registeredVariables][key] ~= nil, "key doesn't exist")
-	return _G[self.registeredVariables][key]
+	assert(A:AreOptionsLoaded(key), "options aren't loaded")
+	local savedvariable = self.optionVariables[key]
+	assert(_G[savedvariable][key] ~= nil, "key doesn't exist")
+	return _G[savedvariable][key]
 end
 
 --[[ namespace:SetOption(_key_, _value_) ![](https://img.shields.io/badge/function-blue)
@@ -402,18 +404,29 @@ Sets a new `value` to the given options `key`.
 --]]
 function A:SetOption(key, value)
 	A:ArgCheck(key, 1, 'string')
-	assert(A:AreOptionsLoaded(), "options aren't loaded")
-	assert(_G[self.registeredVariables][key] ~= nil, "key doesn't exist")
+	assert(A:AreOptionsLoaded(key), "options aren't loaded")
+	local savedvariable = self.optionVariables[key]
+	assert(_G[savedvariable][key] ~= nil, "key doesn't exist")
 
-	_G[self.registeredVariables][key] = value -- this circumvents the setting system, bad?
+	_G[savedvariable][key] = value -- this circumvents the setting system, bad?
 	A:TriggerOptionCallback(key, value)
 end
 
---[[ namespace:AreOptionsLoaded() ![](https://img.shields.io/badge/function-blue)
+--[[ namespace:AreOptionsLoaded([_key_]) ![](https://img.shields.io/badge/function-blue)
 Checks to see if the savedvariables has been loaded in the game.
+If `key` is given, checks specifically for the savedvariable backing that option key.
 --]]
-function A:AreOptionsLoaded()
-	return (not not self.registeredVariables) and (not not _G[self.registeredVariables])
+function A:AreOptionsLoaded(key)
+	if not self.optionVariables then
+		return false
+	end
+
+	if key then
+		local savedvariable = self.optionVariables[key]
+		return not not (savedvariable and _G[savedvariable])
+	end
+
+	return next(self.optionVariables) ~= nil
 end
 
 --[[ namespace:RegisterOptionCallback(_key_, _callback_) ![](https://img.shields.io/badge/function-blue)
@@ -516,18 +529,16 @@ do
 	end
 
 	local function registerMapSettings(savedvariable, settings)
-		if not A.registeredVariables then
-			if not _G[savedvariable] then
-				_G[savedvariable] = {}
-			end
+		if not _G[savedvariable] then
+			_G[savedvariable] = {}
+		end
 
-			for _, setting in next, settings do
-				if _G[savedvariable][setting.key] == nil then
-					_G[savedvariable][setting.key] = setting.default
-				end
+		A.optionVariables = A.optionVariables or {}
+		for _, setting in next, settings do
+			if _G[savedvariable][setting.key] == nil then
+				_G[savedvariable][setting.key] = setting.default
 			end
-
-			A.registeredVariables = savedvariable
+			A.optionVariables[setting.key] = savedvariable
 		end
 
 		-- TODO: menus also has "new feature" flags/textures, see if we can hook into that
