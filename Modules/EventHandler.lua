@@ -137,8 +137,8 @@ function EventMixin:TriggerEvent(event, ...)
 		for _, data in ipairs(CopyList(callbacks[event])) do
 			local successful, ret = pcall(data.callback, data.owner, ...)
 			if not successful then
-				-- ret contains the error
-				error(ret)
+				-- reported rather than rethrown, so one bad handler cannot stop its siblings running
+				CallErrorHandler(ret)
 			elseif ret then
 				-- callbacks can unregister themselves by returning positively,
 				-- ret contains the boolean
@@ -262,7 +262,7 @@ function EventMixin:TriggerUnitEvent(event, unit, ...)
 		for _, data in ipairs(CopyList(unitEventCallbacks[unit][event])) do
 			local successful, ret = pcall(data.callback, data.owner, ...)
 			if not successful then
-				error(ret)
+				CallErrorHandler(ret)
 			elseif ret then
 				-- callbacks can unregister themselves by returning positively
 				EventMixin.UnregisterUnitEvent(data.owner, event, unit, data.callback)
