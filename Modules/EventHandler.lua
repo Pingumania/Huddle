@@ -35,11 +35,13 @@ local function IsUnitValid(unit)
 end
 
 local EventMixin = {}
---[[ namespace.EventMixin:RegisterEvent(_event_, _callback_) ![](https://img.shields.io/badge/function-blue)
+--[[ namespace.EventMixin:RegisterEvent(_event_[, _callback_]) ![](https://img.shields.io/badge/function-blue)
 Registers a [frame `event`](https://warcraft.wiki.gg/wiki/Events) with the `callback` function.
+If `callback` is omitted, it defaults to `self[event]` (a same-named method on the caller).
 If the callback returns positive it will be unregistered.
 --]]
 function EventMixin:RegisterEvent(event, callback)
+	callback = callback or self[event]
 	assert(A:IsEventValid(event), 'arg1 must be an event')
 	assert(type(callback) == 'function', 'arg2 must be a function')
 
