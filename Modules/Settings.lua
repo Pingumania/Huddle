@@ -201,19 +201,7 @@ local function registerSettingsList(category, layout, savedvariable, settings)
 	return keys, initializers, dependents, children
 end
 
-local settingsCategoryID
-local function registerSettings(savedvariable, settings)
-	local categoryName = C_AddOns.GetAddOnMetadata(addonName, 'Title')
-	local category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
-	Settings.RegisterAddOnCategory(category)
-	settingsCategoryID = category:GetID()
-
-	if not _G[savedvariable] then
-		_G[savedvariable] = {}
-	end
-
-	local keys, initializers, dependents, children = registerSettingsList(category, layout, savedvariable, settings)
-
+local function applyDependencies(settings, keys, initializers, dependents, children)
 	for key, requires in next, dependents do
 		assert(not not keys[requires], string.format("setting '%s' can't depend on invalid setting '%s'", key, requires))
 		assert(settings[keys[requires]].type == 'toggle', string.format("setting '%s' can't depend on a non-toggle setting", key))
@@ -226,13 +214,29 @@ local function registerSettings(savedvariable, settings)
 
 		initializers[key]:SetParentInitializer(initializers[parent], alwaysEnabled)
 	end
+end
+
+local settingsCategoryID
+local function registerSettings(savedvariable, settings)
+	local categoryName = C_AddOns.GetAddOnMetadata(addonName, 'Title')
+	local category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
+	Settings.RegisterAddOnCategory(category)
+	settingsCategoryID = category:GetID()
+
+	if not _G[savedvariable] then
+		_G[savedvariable] = {}
+	end
+
+	local keys, initializers, dependents, children = registerSettingsList(category, layout, savedvariable, settings)
+	applyDependencies(settings, keys, initializers, dependents, children)
 
 	-- sub-categories
 	if A.settingsChildren then
 		for _, info in next, A.settingsChildren do
 			if info.settings then
 				local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
-				registerSettingsList(child, childLayout, savedvariable, info.settings)
+				local childKeys, childInitializers, childDependents, childChildren = registerSettingsList(child, childLayout, savedvariable, info.settings)
+				applyDependencies(info.settings, childKeys, childInitializers, childDependents, childChildren)
 			elseif info.callback then
 				local frame, canvas = createCanvas(info.name)
 				Settings.RegisterCanvasLayoutSubcategory(category, frame, info.name)
