@@ -183,6 +183,16 @@ local function registerSetting(category, savedvariable, info)
 	return initializer
 end
 
+-- sub-categories are kept in an array rather than keyed by name, so they appear in the order they
+-- were registered instead of whatever order the hash happens to iterate in
+local function findSubSettings(children, name)
+	for _, info in ipairs(children) do
+		if info.name == name then
+			return info
+		end
+	end
+end
+
 local function isChainEnabled(links, initializers, key)
 	local link = links[key]
 	while link do
@@ -276,7 +286,7 @@ local function registerSettings(savedvariable, settings)
 
 	-- sub-categories
 	if A.settingsChildren then
-		for _, info in next, A.settingsChildren do
+		for _, info in ipairs(A.settingsChildren) do
 			if info.settings then
 				local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
 				local childKeys, childInitializers, childLinks = registerSettingsList(child, childLayout, savedvariable, info.settings)
@@ -396,11 +406,11 @@ function A:RegisterSubSettings(name, settings)
 	A:ArgCheck(name, 1, 'string')
 	A:ArgCheck(settings, 2, 'table')
 	assert(not not self.settingsChildren, "can't register sub-settings without root settings")
-	assert(not self.settingsChildren[name], "can't register two sub-settings with the same name")
-	self.settingsChildren[name] = {
+	assert(not findSubSettings(self.settingsChildren, name), "can't register two sub-settings with the same name")
+	table.insert(self.settingsChildren, {
 		name = name,
 		settings = settings,
-	}
+	})
 end
 
 --[[ namespace:RegisterSubSettingsCanvas(_name_, _callback_) ![](https://img.shields.io/badge/function-blue)
@@ -415,11 +425,11 @@ function A:RegisterSubSettingsCanvas(name, callback)
 	A:ArgCheck(name, 1, 'string')
 	A:ArgCheck(callback, 2, 'function')
 	assert(not not self.settingsChildren, "can't register sub-settings without root settings")
-	assert(not self.settingsChildren[name], "can't register two sub-settings with the same name")
-	self.settingsChildren[name] = {
+	assert(not findSubSettings(self.settingsChildren, name), "can't register two sub-settings with the same name")
+	table.insert(self.settingsChildren, {
 		name = name,
 		callback = callback,
-	}
+	})
 end
 
 --[[ namespace:OpenSettings() ![](https://img.shields.io/badge/function-blue)
