@@ -1,7 +1,30 @@
 local addonName, A = ...
 
+local RELOAD_ICON = '|TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:14:14|t'
+local RELOAD_NOTE = 'This only takes effect after a reload.'
+
+local reloadPopup = addonName .. '_HUDDLE_RELOAD_REQUIRED'
+local reloadRequired = {}
+local reloadAcknowledged
+
+StaticPopupDialogs[reloadPopup] = {
+	text = RELOAD_NOTE .. '|n|nUse /reload when you are done changing settings.',
+	button1 = OKAY,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	-- deliberately does not reload, the player may still be part-way through the panel
+	OnAccept = function()
+		reloadAcknowledged = true
+	end,
+}
+
 local function onSettingChanged(setting, value)
 	A:TriggerOptionCallback(setting.variableKey, value)
+
+	if reloadRequired[setting.variableKey] and not reloadAcknowledged then
+		StaticPopup_Show(reloadPopup)
+	end
 end
 
 local createCanvas
@@ -126,12 +149,21 @@ local function registerSetting(category, savedvariable, info)
 	A.optionVariables = A.optionVariables or {}
 	A.optionVariables[info.key] = savedvariable
 
+	-- marked up rather than drawn, so nothing of ours has to touch the pooled row frames
+	local title = info.title
+	local tooltip = info.tooltip
+	if info.requiresReload then
+		reloadRequired[info.key] = true
+		title = title .. ' ' .. RELOAD_ICON
+		tooltip = tooltip and (tooltip .. '|n|n' .. RELOAD_NOTE) or RELOAD_NOTE
+	end
+
 	local uniqueKey = savedvariable .. '_' .. info.key
-	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable], type(info.default), info.title, info.default)
+	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable], type(info.default), title, info.default)
 
 	local initializer
 	if info.type == 'toggle' then
-		initializer = Settings.CreateCheckbox(category, setting, info.tooltip)
+		initializer = Settings.CreateCheckbox(category, setting, tooltip)
 	elseif info.type == 'slider' then
 		A:ArgCheck(info.minValue, 3, 'number')
 		A:ArgCheck(info.maxValue, 3, 'number')
@@ -139,7 +171,7 @@ local function registerSetting(category, savedvariable, info)
 		local options = Settings.CreateSliderOptions(info.minValue, info.maxValue, info.valueStep or 1)
 		options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, resolveSliderFormatter(info.valueFormat))
 
-		initializer = Settings.CreateSlider(category, setting, options, info.tooltip)
+		initializer = Settings.CreateSlider(category, setting, options, tooltip)
 	elseif info.type == 'menu' then
 		A:ArgCheck(info.options, 3, 'table')
 		local options = function()
@@ -150,12 +182,12 @@ local function registerSetting(category, savedvariable, info)
 			return container:GetData()
 		end
 
-		initializer = Settings.CreateDropdown(category, setting, options, info.tooltip)
+		initializer = Settings.CreateDropdown(category, setting, options, tooltip)
 	elseif info.type == 'color' then
 		assert(#info.default == 8, 'color default must be an 8-character AARRGGBB hex string')
 
 		if not A:IsClassicEra() then
-			initializer = Settings.CreateColorSwatch(category, setting, info.tooltip)
+			initializer = Settings.CreateColorSwatch(category, setting, tooltip)
 		end
 	else
 		error('type is invalid') -- TODO: make this prettier
@@ -356,6 +388,7 @@ A:RegisterSettings('MyAddOnDB', {
         title = 'My Color',
         tooltip = 'Longer description of the color in a tooltip',
         default = 'ffff00ff', -- "AARRGGBB" format
+        requiresReload = true, -- (optional) marks the row and warns once per session when changed
     },
     {
         type = 'header',
