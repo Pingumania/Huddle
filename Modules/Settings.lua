@@ -1,6 +1,7 @@
 local addonName, A = ...
 
-local RELOAD_ICON = '|TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:14:14|t'
+-- the recurring quest icon, a pair of arrows in a circle; Blizzard draws it at 16
+local RELOAD_ICON = CreateAtlasMarkup('Recurringavailablequesticon', 16, 16)
 local RELOAD_NOTE = 'This only takes effect after a reload.'
 
 local reloadPopup = addonName .. '_HUDDLE_RELOAD_REQUIRED'
