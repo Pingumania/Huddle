@@ -34,6 +34,15 @@ local function IsUnitValid(unit)
 	end
 end
 
+-- dispatch iterates a copy, since callbacks are free to register or unregister while they run
+local function CopyList(list)
+	local copy = {}
+	for index = 1, #list do
+		copy[index] = list[index]
+	end
+	return copy
+end
+
 local EventMixin = {}
 --[[ namespace.EventMixin:RegisterEvent(_event_[, _callback_]) ![](https://img.shields.io/badge/function-blue)
 Registers a [frame `event`](https://warcraft.wiki.gg/wiki/Events) with the `callback` function.
@@ -67,9 +76,9 @@ function EventMixin:UnregisterEvent(event, callback)
 	assert(type(callback) == 'function', 'arg2 must be a function')
 
 	if callbacks[event] then
-		for index, data in next, callbacks[event] do
+		for index, data in ipairs(callbacks[event]) do
 			if data.owner == self and data.callback == callback then
-				callbacks[event][index] = nil
+				table.remove(callbacks[event], index)
 				break
 			end
 		end
@@ -89,7 +98,7 @@ function EventMixin:UnregisterAllEvents(callback)
 	end
 
 	for event, cbs in next, callbacks do
-		for _, data in next, cbs do
+		for _, data in ipairs(CopyList(cbs)) do
 			if data.owner == self then
 				if callback then
 					if data.callback == callback then
@@ -125,7 +134,7 @@ If the callback returns positive it will be unregistered.
 --]]
 function EventMixin:TriggerEvent(event, ...)
 	if callbacks[event] then
-		for _, data in next, callbacks[event] do
+		for _, data in ipairs(CopyList(callbacks[event])) do
 			local successful, ret = pcall(data.callback, data.owner, ...)
 			if not successful then
 				-- ret contains the error
@@ -207,9 +216,9 @@ function EventMixin:UnregisterUnitEvent(event, ...)
 		assert(IsUnitEventValid(event, unit), 'event is not valid for the given unit')
 
 		if unitEventCallbacks[unit] and unitEventCallbacks[unit][event] then
-			for index, data in next, unitEventCallbacks[unit][event] do
+			for index, data in ipairs(unitEventCallbacks[unit][event]) do
 				if data.owner == self and data.callback == callback then
-					unitEventCallbacks[unit][event][index] = nil
+					table.remove(unitEventCallbacks[unit][event], index)
 					break
 				end
 			end
@@ -250,7 +259,7 @@ If the callback returns positive it will be unregistered.
 --]]
 function EventMixin:TriggerUnitEvent(event, unit, ...)
 	if unitEventCallbacks[unit] and unitEventCallbacks[unit][event] then
-		for _, data in next, unitEventCallbacks[unit][event] do
+		for _, data in ipairs(CopyList(unitEventCallbacks[unit][event])) do
 			local successful, ret = pcall(data.callback, data.owner, ...)
 			if not successful then
 				error(ret)
