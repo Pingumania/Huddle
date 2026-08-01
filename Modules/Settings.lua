@@ -91,8 +91,83 @@ local function resolveSliderFormatter(valueFormat)
 	return defaultSliderFormatter
 end
 
+-- matches the header height baked into SettingsExpandableSectionTemplate
+local SECTION_HEADER_HEIGHT = 30
+local SECTION_BOTTOM_PADDING = 10
+
+local function setSectionExpanded(frame, expanded)
+	frame.Button.Right:SetAtlas(expanded and 'Options_ListExpand_Right_Expanded' or 'Options_ListExpand_Right',
+		TextureKitConstants.UseAtlasSize)
+
+	if frame.sectionContent then
+		frame.sectionContent:SetShown(expanded)
+	end
+end
+
 local function registerSetting(category, savedvariable, info)
-	if info.type == 'custom' then
+	if info.type == 'section' then
+		A:ArgCheck(info.title, 3, 'string')
+		A:ArgCheck(info.createContent, 3, 'function')
+
+		local data = {name = info.title, expanded = not not info.expanded}
+
+		-- inherits GetName, which the template's own Init calls
+		local initializer = CreateFromMixins(SettingsExpandableSectionInitializer)
+		ScrollBoxFactoryInitializerMixin.Init(initializer, 'SettingsExpandableSectionTemplate', data)
+
+		function initializer:GetExtent()
+			if not data.expanded then
+				return SECTION_HEADER_HEIGHT
+			end
+
+			return SECTION_HEADER_HEIGHT + (data.contentHeight or 0) + SECTION_BOTTOM_PADDING
+		end
+
+		function initializer:InitFrame(frame)
+			SettingsExpandableSectionMixin.Init(frame, self)
+
+			-- rows are recycled, so the content is built once per frame and reused after that
+			if frame.sectionContentOwner ~= info then
+				if frame.sectionContent then
+					frame.sectionContent:Hide()
+				end
+
+				frame.sectionContent = info.createContent(frame)
+				frame.sectionContent:SetParent(frame)
+				frame.sectionContent:ClearAllPoints()
+				frame.sectionContent:SetPoint('TOPLEFT', 0, -SECTION_HEADER_HEIGHT)
+				frame.sectionContent:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
+				frame.sectionContentOwner = info
+			end
+
+			data.contentHeight = frame.sectionContent:GetHeight()
+
+			-- the template's mixin leaves both of these to whoever implements a section
+			function frame:CalculateHeight()
+				return initializer:GetExtent()
+			end
+
+			function frame:OnExpandedChanged(expanded)
+				setSectionExpanded(self, expanded)
+				self:SetHeight(initializer:GetExtent())
+			end
+
+			setSectionExpanded(frame, data.expanded)
+			frame:SetHeight(initializer:GetExtent())
+		end
+
+		function initializer:Resetter(frame)
+			if frame.sectionContent then
+				frame.sectionContent:Hide()
+			end
+
+			frame.sectionContentOwner = nil
+		end
+
+		SettingsPanel:GetLayout(category):AddInitializer(initializer)
+
+		return initializer
+	elseif info.type == 'custom' then
 		A:ArgCheck(info.title, 3, 'string')
 		A:ArgCheck(info.createControl, 3, 'function')
 
@@ -232,7 +307,7 @@ local function registerSettingsList(category, layout, savedvariable, settings)
 	for index, setting in next, settings do
 		if setting.type == 'header' then
 			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(setting.title, setting.tooltip))
-		elseif setting.type == 'custom' then
+		elseif setting.type == 'custom' or setting.type == 'section' then
 			registerSetting(category, savedvariable, setting)
 		else
 			local initializer = registerSetting(category, savedvariable, setting)
@@ -402,6 +477,16 @@ A:RegisterSettings('MyAddOnDB', {
         tooltip = 'Optional tooltip', -- (optional)
         createControl = function(rowFrame) -- called once per physical row frame (rows get recycled)
             return A:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
+        end,
+    },
+    {
+        type = 'section',
+        title = 'A Collapsible Section',
+        expanded = false, -- (optional) defaults to false, so sections start collapsed
+        createContent = function(section) -- called once per physical row frame (rows get recycled)
+            local content = CreateFrame('Frame', nil, section)
+            content:SetHeight(80) -- the height is read back to size the expanded section
+            return content
         end,
     },
 })
