@@ -20,6 +20,21 @@ StaticPopupDialogs[reloadPopup] = {
 	end,
 }
 
+-- scoped to the panel being shown, unlike Blizzard's GAME_SETTINGS_APPLY_DEFAULTS
+local defaultsPopup = addonName .. '_HUDDLE_APPLY_DEFAULTS'
+
+StaticPopupDialogs[defaultsPopup] = {
+	text = 'Reset the settings on this page to their defaults?',
+	button1 = OKAY,
+	button2 = CANCEL,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	OnAccept = function(_, applyDefaults)
+		applyDefaults()
+	end,
+}
+
 local function onSettingChanged(setting, value)
 	A:TriggerOptionCallback(setting.variableKey, value)
 
@@ -50,7 +65,7 @@ do
 		local title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
 		title:SetPoint('TOPLEFT', 7, -22)
 		title:SetJustifyH('LEFT')
-		title:SetText(string.format('%s - %s', addonName, name))
+		title:SetText(name and string.format('%s - %s', addonName, name) or addonName)
 		header.Title = title
 
 		local defaults = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
@@ -74,6 +89,11 @@ do
 	end
 end
 
+-- the slider's value label. An enum namespaced on the mixin table rather than a method on it, and
+-- the only name it has - SetLabelFormatter takes nothing else, and Blizzard's own settings
+-- definitions and implementation readme both spell it this way
+local SLIDER_VALUE_LABEL = MinimalSliderWithSteppersMixin.Label.Right
+
 local function formatCustom(fmt, value)
 	return fmt:format(value)
 end
@@ -95,128 +115,10 @@ end
 local SECTION_HEADER_HEIGHT = 30
 local SECTION_BOTTOM_PADDING = 10
 
-local function setSectionExpanded(frame, expanded)
-	frame.Button.Right:SetAtlas(expanded and 'Options_ListExpand_Right_Expanded' or 'Options_ListExpand_Right',
-		TextureKitConstants.UseAtlasSize)
+-- matches NamePlatePreviewTemplate, which is the widest the settings list gets
+local PREVIEW_HEIGHT = 195
 
-	if frame.sectionContent then
-		frame.sectionContent:SetShown(expanded)
-	end
-end
-
-local function registerSetting(category, savedvariable, info)
-	if info.type == 'section' then
-		A:ArgCheck(info.title, 3, 'string')
-		A:ArgCheck(info.createContent, 3, 'function')
-
-		local data = {name = info.title, expanded = not not info.expanded}
-
-		-- inherits GetName, which the template's own Init calls
-		local initializer = CreateFromMixins(SettingsExpandableSectionInitializer)
-		ScrollBoxFactoryInitializerMixin.Init(initializer, 'SettingsExpandableSectionTemplate', data)
-
-		function initializer:GetExtent()
-			if not data.expanded then
-				return SECTION_HEADER_HEIGHT
-			end
-
-			return SECTION_HEADER_HEIGHT + (data.contentHeight or 0) + SECTION_BOTTOM_PADDING
-		end
-
-		function initializer:InitFrame(frame)
-			SettingsExpandableSectionMixin.Init(frame, self)
-
-			-- rows are recycled, so the content is built once per frame and reused after that
-			if frame.sectionContentOwner ~= info then
-				if frame.sectionContent then
-					frame.sectionContent:Hide()
-				end
-
-				frame.sectionContent = info.createContent(frame)
-				frame.sectionContent:SetParent(frame)
-				frame.sectionContent:ClearAllPoints()
-				frame.sectionContent:SetPoint('TOPLEFT', 0, -SECTION_HEADER_HEIGHT)
-				frame.sectionContent:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
-				frame.sectionContentOwner = info
-			end
-
-			data.contentHeight = frame.sectionContent:GetHeight()
-
-			-- the template's mixin leaves both of these to whoever implements a section
-			function frame:CalculateHeight()
-				return initializer:GetExtent()
-			end
-
-			function frame:OnExpandedChanged(expanded)
-				setSectionExpanded(self, expanded)
-				self:SetHeight(initializer:GetExtent())
-			end
-
-			setSectionExpanded(frame, data.expanded)
-			frame:SetHeight(initializer:GetExtent())
-		end
-
-		function initializer:Resetter(frame)
-			if frame.sectionContent then
-				frame.sectionContent:Hide()
-			end
-
-			frame.sectionContentOwner = nil
-		end
-
-		SettingsPanel:GetLayout(category):AddInitializer(initializer)
-
-		return initializer
-	elseif info.type == 'custom' then
-		A:ArgCheck(info.title, 3, 'string')
-		A:ArgCheck(info.createControl, 3, 'function')
-
-		local initializer = CreateFromMixins(ScrollBoxFactoryInitializerMixin, SettingsElementHierarchyMixin, SettingsSearchableElementMixin)
-		ScrollBoxFactoryInitializerMixin.Init(initializer, 'SettingsListElementTemplate', { name = info.title, tooltip = info.tooltip })
-
-		function initializer:GetExtent()
-			return 26
-		end
-
-		function initializer:InitFrame(frame)
-			if not frame.cbrHandles then
-				frame.cbrHandles = Settings.CreateCallbackHandleContainer()
-			end
-			frame.data = self.data
-			frame.Text:SetText(info.title)
-			frame.Text:SetPoint('LEFT', 37, 0)
-			frame.Text:SetPoint('RIGHT', frame, 'CENTER', -85, 0)
-
-			if frame.customControlOwner ~= info then
-				for _, child in next, { frame:GetChildren() } do
-					if child ~= frame.Tooltip and child ~= frame.NewFeature then
-						child:Hide()
-					end
-				end
-				frame.customControl = info.createControl(frame)
-				frame.customControl:SetPoint('LEFT', frame, 'CENTER', -48, 3)
-				frame.customControlOwner = info
-			elseif frame.customControl.GenerateMenu then
-				frame.customControl:GenerateMenu()
-			end
-		end
-
-		function initializer:Resetter(frame)
-			if frame.cbrHandles then
-				frame.cbrHandles:Unregister()
-			end
-
-			if frame.customControl then
-				frame.customControl:Hide()
-			end
-			frame.customControlOwner = nil
-		end
-
-		SettingsPanel:GetLayout(category):AddInitializer(initializer)
-
-		return initializer
-	end
-
+local function createSetting(category, savedvariable, info)
 	A:ArgCheck(info.key, 3, 'string')
 	A:ArgCheck(info.title, 3, 'string')
 	A:ArgCheck(info.type, 3, 'string')
@@ -235,7 +137,14 @@ local function registerSetting(category, savedvariable, info)
 	end
 
 	local uniqueKey = savedvariable .. '_' .. info.key
-	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable], type(info.default), title, info.default)
+	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable],
+		type(info.default), title, info.default)
+
+	return setting, title, tooltip
+end
+
+local function registerSetting(category, savedvariable, info)
+	local setting, _, tooltip = createSetting(category, savedvariable, info)
 
 	local initializer
 	if info.type == 'toggle' then
@@ -245,7 +154,7 @@ local function registerSetting(category, savedvariable, info)
 		A:ArgCheck(info.maxValue, 3, 'number')
 
 		local options = Settings.CreateSliderOptions(info.minValue, info.maxValue, info.valueStep or 1)
-		options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, resolveSliderFormatter(info.valueFormat))
+		options:SetLabelFormatter(SLIDER_VALUE_LABEL, resolveSliderFormatter(info.valueFormat))
 
 		initializer = Settings.CreateSlider(category, setting, options, tooltip)
 	elseif info.type == 'menu' then
@@ -274,6 +183,344 @@ local function registerSetting(category, savedvariable, info)
 	A:TriggerOptionCallback(info.key, setting:GetValue())
 
 	return initializer
+end
+
+--[[
+	Custom rows are drawn on a canvas sub-panel rather than in Blizzard's settings list.
+
+	The list only accepts initializers built inside its secure attribute delegate
+	(`Settings.CreateElementInitializer` and friends), which binds all behavior to a template mixin
+	and rejects functions passed through its data table. An initializer built in addon code is
+	tainted, and since `SettingsListMixin`'s extent calculator reads it on every update, that taint
+	reaches the rows Blizzard pools for its own panels and eventually kills an unrelated prereq
+	check with ADDON_ACTION_FORBIDDEN.
+
+	A canvas is a single frame handed to Blizzard and never touched again, so everything inside it
+	belongs to us. The rows are still Blizzard's own control templates driven by initializers from
+	`Settings.Create*Initializer`, so they look and behave exactly like a row in Blizzard's panels -
+	they are just created directly instead of being pulled from the settings list's frame pools.
+]]
+
+-- the settings list's own padding, so a canvas panel lines up with a list one
+local CANVAS_PAD_TOP = 10
+local CANVAS_PAD_LEFT = 25
+local CANVAS_SPACING = 9
+
+-- where every Blizzard control row puts its widget
+local CANVAS_CONTROL_X = -48
+local CANVAS_CONTROL_Y = 3
+
+local CANVAS_TEMPLATES = {
+	toggle = 'SettingsCheckboxControlTemplate',
+	slider = 'SettingsSliderControlTemplate',
+	menu = 'SettingsDropdownControlTemplate',
+	color = 'SettingsColorSwatchControlTemplate',
+}
+
+local CANVAS_TYPES = {custom = true, preview = true, section = true}
+
+local function needsCanvas(settings)
+	for _, info in next, settings do
+		if CANVAS_TYPES[info.type] then
+			return true
+		end
+	end
+end
+
+local function templateHeight(template)
+	local info = C_XMLUtil.GetTemplateInfo(template)
+	return info and info.height or 26
+end
+
+-- Blizzard's row mixins read their initializer back off the frame, which the settings list
+-- normally supplies as an accessor. These rows are not in a list, so hand it over directly.
+local function initCanvasRow(row, initializer)
+	row.GetElementData = function()
+		return initializer
+	end
+
+	row:Init(initializer)
+
+	return row
+end
+
+local function resolveLink(info)
+	if info.requires then
+		return {key = info.requires, gated = true, indent = true}
+	elseif info.gatedBy then
+		return {key = info.gatedBy, gated = true}
+	elseif info.parent then
+		return {key = info.parent, indent = true}
+	end
+end
+
+local function createControlInitializer(setting, info, tooltip)
+	if info.type == 'toggle' then
+		return Settings.CreateCheckboxInitializer(setting, nil, tooltip)
+	elseif info.type == 'slider' then
+		A:ArgCheck(info.minValue, 3, 'number')
+		A:ArgCheck(info.maxValue, 3, 'number')
+
+		local options = Settings.CreateSliderOptions(info.minValue, info.maxValue, info.valueStep or 1)
+		options:SetLabelFormatter(SLIDER_VALUE_LABEL, resolveSliderFormatter(info.valueFormat))
+
+		return Settings.CreateSliderInitializer(setting, options, tooltip)
+	elseif info.type == 'menu' then
+		A:ArgCheck(info.options, 3, 'table')
+
+		local options = function()
+			local container = Settings.CreateControlTextContainer()
+			for _, option in next, info.options do
+				container:Add(option.value, option.label)
+			end
+			return container:GetData()
+		end
+
+		return Settings.CreateDropdownInitializer(setting, options, tooltip)
+	elseif info.type == 'color' then
+		assert(#info.default == 8, 'color default must be an 8-character AARRGGBB hex string')
+
+		return Settings.CreateColorSwatchInitializer(setting, nil, tooltip)
+	end
+
+	error('type is invalid')
+end
+
+local function createCanvasSection(parent, info, relayout)
+	local data = {name = info.title, expanded = not not info.expanded}
+	local initializer = Settings.CreateElementInitializer('SettingsExpandableSectionTemplate', data)
+	local row = CreateFrame('EventFrame', nil, parent, 'SettingsExpandableSectionTemplate')
+
+	local body = info.createContent(row)
+	body:SetParent(row)
+	body:ClearAllPoints()
+	body:SetPoint('TOPLEFT', 0, -SECTION_HEADER_HEIGHT)
+	body:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
+
+	-- the template's mixin leaves all three of these to whoever implements a section, the same way
+	-- SettingsKeybindingSectionMixin has to swap its own atlas
+	function row:CalculateHeight()
+		if not data.expanded then
+			return SECTION_HEADER_HEIGHT
+		end
+
+		return SECTION_HEADER_HEIGHT + body:GetHeight() + SECTION_BOTTOM_PADDING
+	end
+
+	function row:OnExpandedChanged(expanded)
+		self.Button.Right:SetAtlas(expanded and 'Options_ListExpand_Right_Expanded' or 'Options_ListExpand_Right',
+			TextureKitConstants.UseAtlasSize)
+
+		body:SetShown(expanded)
+		relayout()
+	end
+
+	initCanvasRow(row, initializer)
+	row:SetHeight(row:CalculateHeight())
+	row:OnExpandedChanged(data.expanded)
+
+	return row
+end
+
+-- the bordered box Blizzard uses for the nameplate preview, without its contents
+local function createCanvasPreview(parent, info)
+	local row = CreateFrame('Frame', nil, parent)
+	row:SetHeight(info.height or PREVIEW_HEIGHT)
+
+	local border = row:CreateTexture(nil, 'BACKGROUND')
+	border:SetAtlas('options_frame_child')
+	border:SetPoint('TOPLEFT', 20, 0)
+	border:SetPoint('BOTTOMRIGHT', -20, 0)
+
+	if info.title then
+		local label = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+		label:SetJustifyH('LEFT')
+		label:SetPoint('TOPLEFT', border, 'TOPLEFT', 10, -10)
+		label:SetText(info.title)
+	end
+
+	info.createPreview(row)
+
+	return row
+end
+
+local function renderCanvasSettings(canvas, category, savedvariable, settings)
+	local scroll = CreateFrame('ScrollFrame', nil, canvas)
+	scroll:SetPoint('TOPLEFT', 0, -CANVAS_PAD_TOP)
+	scroll:SetPoint('BOTTOMRIGHT', -22, 0)
+	scroll:EnableMouseWheel(true)
+
+	local scrollBar = CreateFrame('EventFrame', nil, canvas, 'MinimalScrollBar')
+	scrollBar:SetPoint('TOPLEFT', scroll, 'TOPRIGHT', 8, 0)
+	scrollBar:SetPoint('BOTTOMLEFT', scroll, 'BOTTOMRIGHT', 8, 0)
+
+	local content = CreateFrame('Frame', nil, scroll)
+	content:SetSize(1, 1)
+	scroll:SetScrollChild(content)
+	scroll:SetScript('OnSizeChanged', function(_, width)
+		content:SetWidth(width)
+	end)
+
+	ScrollUtil.InitScrollFrameWithScrollBar(scroll, scrollBar)
+
+	local order = {}
+	local controls = {}
+	local settingsByKey = {}
+	local links = {}
+
+	local function relayout()
+		local offset = 0
+		for _, row in ipairs(order) do
+			row:ClearAllPoints()
+			row:SetPoint('TOPLEFT', CANVAS_PAD_LEFT, -offset)
+			row:SetPoint('TOPRIGHT', 0, -offset)
+			offset = offset + row:GetHeight() + CANVAS_SPACING
+		end
+
+		content:SetHeight(math.max(offset, 1))
+	end
+
+	local function isLinkEnabled(link)
+		while link do
+			if link.gated then
+				local setting = settingsByKey[link.key]
+				if not (setting and setting:GetValue()) then
+					return false
+				end
+			end
+
+			link = links[link.key]
+		end
+
+		return true
+	end
+
+	local function evaluate()
+		for _, row in ipairs(controls) do
+			row:EvaluateState()
+		end
+	end
+
+	local defaults = {}
+
+	for _, info in ipairs(settings) do
+		local row
+
+		if info.type == 'header' then
+			row = CreateFrame('Frame', nil, content, 'SettingsListSectionHeaderTemplate')
+			row:SetHeight(templateHeight('SettingsListSectionHeaderTemplate'))
+			initCanvasRow(row, CreateSettingsListSectionHeaderInitializer(info.title, info.tooltip))
+		elseif info.type == 'preview' then
+			A:ArgCheck(info.createPreview, 3, 'function')
+
+			row = createCanvasPreview(content, info)
+		elseif info.type == 'section' then
+			A:ArgCheck(info.title, 3, 'string')
+			A:ArgCheck(info.createContent, 3, 'function')
+
+			row = createCanvasSection(content, info, relayout)
+		elseif info.type == 'custom' then
+			A:ArgCheck(info.title, 3, 'string')
+			A:ArgCheck(info.createControl, 3, 'function')
+
+			local link = resolveLink(info)
+			local initializer = Settings.CreateElementInitializer('SettingsListElementTemplate',
+				{name = info.title, tooltip = info.tooltip})
+
+			if link then
+				initializer:AddModifyPredicate(function()
+					return isLinkEnabled(link)
+				end)
+
+				if link.indent then
+					initializer:Indent()
+				end
+			end
+
+			row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
+			row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
+
+			-- Blizzard only ever inherits this template, never instantiates it, so it declares no
+			-- OnLoad and the concrete row templates each declare their own. That handler's entire
+			-- body is the line below, which Init then asserts on.
+			row.cbrHandles = Settings.CreateCallbackHandleContainer()
+
+			-- SettingsListElementMixin has no EvaluateState of its own beyond visibility, so the
+			-- greying is done here rather than by the row
+			function row:EvaluateState()
+				local enabled = isLinkEnabled(link)
+				self:DisplayEnabled(enabled)
+
+				if self.customControl then
+					self.customControl:SetAlpha(enabled and 1 or 0.4)
+
+					if self.customControl.SetEnabled then
+						self.customControl:SetEnabled(enabled)
+					end
+				end
+			end
+
+			initCanvasRow(row, initializer)
+
+			row.customControl = info.createControl(row)
+			row.customControl:SetPoint('LEFT', row, 'CENTER', CANVAS_CONTROL_X, CANVAS_CONTROL_Y)
+			controls[#controls + 1] = row
+		elseif info.type == 'color' and A:IsClassicEra() then
+			-- no colour swatch control exists there
+		else
+			local setting, _, tooltip = createSetting(category, savedvariable, info)
+			local link = resolveLink(info)
+			links[info.key] = link
+			settingsByKey[info.key] = setting
+
+			local initializer = createControlInitializer(setting, info, tooltip)
+
+			if link then
+				initializer:AddModifyPredicate(function()
+					return isLinkEnabled(link)
+				end)
+
+				if link.indent then
+					initializer:Indent()
+				end
+			end
+
+			row = CreateFrame('Frame', nil, content, CANVAS_TEMPLATES[info.type])
+			row:SetHeight(templateHeight(CANVAS_TEMPLATES[info.type]))
+			initCanvasRow(row, initializer)
+			controls[#controls + 1] = row
+
+			defaults[#defaults + 1] = setting
+
+			setting:SetValueChangedCallback(function(changed, value)
+				onSettingChanged(changed, value)
+				evaluate()
+			end)
+
+			A:TriggerOptionCallback(info.key, setting:GetValue())
+		end
+
+		if row then
+			order[#order + 1] = row
+		end
+	end
+
+	if #defaults > 0 then
+		local function applyDefaults()
+			for _, setting in ipairs(defaults) do
+				setting:SetValue(setting:GetDefaultValue())
+			end
+
+			evaluate()
+		end
+
+		canvas:SetDefaultsHandler(function()
+			StaticPopup_Show(defaultsPopup, nil, nil, applyDefaults)
+		end)
+	end
+
+	relayout()
+	evaluate()
 end
 
 -- sub-categories are kept in an array rather than keyed by name, so they appear in the order they
@@ -307,8 +554,6 @@ local function registerSettingsList(category, layout, savedvariable, settings)
 	for index, setting in next, settings do
 		if setting.type == 'header' then
 			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(setting.title, setting.tooltip))
-		elseif setting.type == 'custom' or setting.type == 'section' then
-			registerSetting(category, savedvariable, setting)
 		else
 			local initializer = registerSetting(category, savedvariable, setting)
 			keys[setting.key] = index
@@ -381,7 +626,16 @@ end
 local settingsCategoryID
 local function registerSettings(savedvariable, settings)
 	local categoryName = C_AddOns.GetAddOnMetadata(addonName, 'Title')
-	local category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
+
+	local category, layout, canvas
+	if needsCanvas(settings) then
+		local frame
+		frame, canvas = createCanvas()
+		category = Settings.RegisterCanvasLayoutCategory(frame, categoryName)
+	else
+		category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
+	end
+
 	Settings.RegisterAddOnCategory(category)
 	settingsCategoryID = category:GetID()
 
@@ -389,16 +643,26 @@ local function registerSettings(savedvariable, settings)
 		_G[savedvariable] = {}
 	end
 
-	local keys, initializers, links = registerSettingsList(category, layout, savedvariable, settings)
-	applyDependencies(settings, keys, initializers, links)
+	if canvas then
+		renderCanvasSettings(canvas, category, savedvariable, settings)
+	else
+		local keys, initializers, links = registerSettingsList(category, layout, savedvariable, settings)
+		applyDependencies(settings, keys, initializers, links)
+	end
 
 	-- sub-categories
 	if A.settingsChildren then
 		for _, info in ipairs(A.settingsChildren) do
 			if info.settings then
-				local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
-				local childKeys, childInitializers, childLinks = registerSettingsList(child, childLayout, savedvariable, info.settings)
-				applyDependencies(info.settings, childKeys, childInitializers, childLinks)
+				if needsCanvas(info.settings) then
+					local childFrame, childCanvas = createCanvas(info.name)
+					local child = Settings.RegisterCanvasLayoutSubcategory(category, childFrame, info.name)
+					renderCanvasSettings(childCanvas, child, savedvariable, info.settings)
+				else
+					local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
+					local childKeys, childInitializers, childLinks = registerSettingsList(child, childLayout, savedvariable, info.settings)
+					applyDependencies(info.settings, childKeys, childInitializers, childLinks)
+				end
 			elseif info.callback then
 				local frame, canvas = createCanvas(info.name)
 				Settings.RegisterCanvasLayoutSubcategory(category, frame, info.name)
@@ -421,6 +685,10 @@ Registers a set of `settings` with the interface options panel.
 The values will be stored by the `settings`' objects' `key` in `savedvariables`.
 
 Should be used with the options methods below.
+
+A panel containing a `custom`, `section` or `preview` object is drawn on a canvas of our own instead
+of in Blizzard's settings list, because an addon cannot add a row to that list without tainting it.
+Such a panel does not take part in the settings search.
 
 Usage:
 ```lua
@@ -475,7 +743,8 @@ A:RegisterSettings('MyAddOnDB', {
         type = 'custom',
         title = 'A Custom Row',
         tooltip = 'Optional tooltip', -- (optional)
-        createControl = function(rowFrame) -- called once per physical row frame (rows get recycled)
+        requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+        createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
             return A:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
         end,
     },
@@ -487,6 +756,17 @@ A:RegisterSettings('MyAddOnDB', {
             local content = CreateFrame('Frame', nil, section)
             content:SetHeight(80) -- the height is read back to size the expanded section
             return content
+        end,
+    },
+    {
+        type = 'preview',
+        title = 'PREVIEW', -- (optional) label drawn inside the box, defaults to PREVIEW
+        height = 195, -- (optional) row height, defaults to 195
+        createPreview = function(panel) -- called once per physical row frame (rows get recycled)
+            local preview = CreateFrame('Frame', nil, panel)
+            preview:SetPoint('CENTER')
+            preview:SetSize(200, 100)
+            return preview
         end,
     },
 })
@@ -668,7 +948,7 @@ do
 			slider:SetSize(150, 25)
 			slider:RegisterCallback('OnValueChanged', setter, frame)
 			slider:Init(getter(), minValue, maxValue, (maxValue - minValue) / steps, {
-				[MinimalSliderWithSteppersMixin.Label.Right] = formatter or defaultSliderFormatter,
+				[SLIDER_VALUE_LABEL] = formatter or defaultSliderFormatter,
 			})
 			frame.slider = slider -- ref for resetter
 
@@ -841,7 +1121,7 @@ function A:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setValu
 
 	local slider = CreateFrame('Frame', nil, parent, 'MinimalSliderWithSteppersTemplate')
 	slider:Init(getValue(), minValue, maxValue, (maxValue - minValue) / valueStep, {
-		[MinimalSliderWithSteppersMixin.Label.Right] = defaultSliderFormatter,
+		[SLIDER_VALUE_LABEL] = defaultSliderFormatter,
 	})
 	slider:RegisterCallback('OnValueChanged', function(_, value)
 		setValue(value)
