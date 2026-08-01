@@ -20,7 +20,6 @@ StaticPopupDialogs[reloadPopup] = {
 	end,
 }
 
--- scoped to the panel being shown, unlike Blizzard's GAME_SETTINGS_APPLY_DEFAULTS
 local defaultsPopup = addonName .. '_HUDDLE_APPLY_DEFAULTS'
 
 StaticPopupDialogs[defaultsPopup] = {
@@ -89,9 +88,6 @@ do
 	end
 end
 
--- the slider's value label. An enum namespaced on the mixin table rather than a method on it, and
--- the only name it has - SetLabelFormatter takes nothing else, and Blizzard's own settings
--- definitions and implementation readme both spell it this way
 local SLIDER_VALUE_LABEL = MinimalSliderWithSteppersMixin.Label.Right
 
 local function formatCustom(fmt, value)
@@ -111,11 +107,9 @@ local function resolveSliderFormatter(valueFormat)
 	return defaultSliderFormatter
 end
 
--- matches the header height baked into SettingsExpandableSectionTemplate
 local SECTION_HEADER_HEIGHT = 30
 local SECTION_BOTTOM_PADDING = 10
 
--- matches NamePlatePreviewTemplate, which is the widest the settings list gets
 local PREVIEW_HEIGHT = 195
 
 local function createSetting(category, savedvariable, info)
@@ -127,7 +121,6 @@ local function createSetting(category, savedvariable, info)
 	A.optionVariables = A.optionVariables or {}
 	A.optionVariables[info.key] = savedvariable
 
-	-- marked up rather than drawn, so nothing of ours has to touch the pooled row frames
 	local title = info.title
 	local tooltip = info.tooltip
 	if info.requiresReload then
@@ -185,38 +178,11 @@ local function registerSetting(category, savedvariable, info)
 	return initializer
 end
 
---[[
-	Custom rows are drawn on a canvas sub-panel rather than in Blizzard's settings list.
-
-	The list only accepts initializers built inside its secure attribute delegate
-	(`Settings.CreateElementInitializer` and friends), which binds all behavior to a template mixin
-	and rejects functions passed through its data table. An initializer built in addon code is
-	tainted, and since `SettingsListMixin`'s extent calculator reads it on every update, that taint
-	reaches the rows Blizzard pools for its own panels and eventually kills an unrelated prereq
-	check with ADDON_ACTION_FORBIDDEN.
-
-	A canvas is a single frame handed to Blizzard and never touched again, so everything inside it
-	belongs to us. The rows are still Blizzard's own control templates driven by initializers from
-	`Settings.Create*Initializer`, so they look and behave exactly like a row in Blizzard's panels -
-	they are just created directly instead of being pulled from the settings list's frame pools.
-]]
-
--- the settings list's own padding, so a canvas panel lines up with a list one
 local CANVAS_PAD_TOP = 10
 local CANVAS_PAD_LEFT = 25
 local CANVAS_SPACING = 9
 
--- SettingsListMixin hangs its scroll box 15 left of the header, which is what puts a row's label
--- 47 from the panel edge rather than the 62 its own padding would suggest
 local CANVAS_SCROLL_INSET = -15
-
---[[
-	Where each template puts its own widget, all relative to the row's CENTER, plus how far the whole
-	lot is nudged right - a canvas row is wider than a list row, so Blizzard's offsets leave the
-	widgets sitting well left of centre. Shifting them all by the same amount keeps the relative
-	alignment Blizzard already tuned; anchoring them individually to the right edge does not, since
-	these templates do not report a usable width.
-]]
 local CANVAS_CONTROL_SHIFT = 40
 local CANVAS_LABEL_X = -85
 
@@ -236,7 +202,6 @@ local function shiftCanvasControl(row, info)
 		return
 	end
 
-	-- toggleWithButton's button hangs off the checkbox, so it comes along on its own
 	control:ClearAllPoints()
 	control:SetPoint('LEFT', row, 'CENTER', anchor.x + CANVAS_CONTROL_SHIFT, anchor.y)
 
@@ -266,8 +231,6 @@ local function templateHeight(template)
 	return info and info.height or 26
 end
 
--- Blizzard's row mixins read their initializer back off the frame, which the settings list
--- normally supplies as an accessor. These rows are not in a list, so hand it over directly.
 local function initCanvasRow(row, initializer)
 	row.GetElementData = function()
 		return initializer
@@ -295,7 +258,6 @@ local function createControlInitializer(setting, info, tooltip)
 		A:ArgCheck(info.buttonText, 3, 'string')
 		A:ArgCheck(info.onClick, 3, 'function')
 
-		-- the button stays clickable while the toggle is off, which is what a preview wants
 		local clickRequiresSet = false
 		return CreateSettingsCheckboxWithButtonInitializer(setting, info.buttonText, info.onClick, nil,
 			clickRequiresSet, tooltip)
@@ -327,13 +289,6 @@ local function createControlInitializer(setting, info, tooltip)
 
 	error('type is invalid')
 end
-
---[[
-	Two shapes of section. `createContent` draws its own frame inside the section, which the section
-	grows to fit. `settings` instead groups the rows that follow it, which stay ordinary rows of the
-	panel - so they keep their dependencies, their defaults and their Blizzard templates, and the
-	section only decides whether the layout skips them.
-]]
 local function createCanvasSection(parent, info, relayout)
 	local data = {name = info.title, expanded = not not info.expanded}
 	local initializer = Settings.CreateElementInitializer('SettingsExpandableSectionTemplate', data)
@@ -348,8 +303,6 @@ local function createCanvasSection(parent, info, relayout)
 		body:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
 	end
 
-	-- the template's mixin leaves all three of these to whoever implements a section, the same way
-	-- SettingsKeybindingSectionMixin has to swap its own atlas
 	function row:CalculateHeight()
 		if not body or not data.expanded then
 			return SECTION_HEADER_HEIGHT
@@ -373,7 +326,6 @@ local function createCanvasSection(parent, info, relayout)
 	row:SetHeight(row:CalculateHeight())
 	row:OnExpandedChanged(data.expanded)
 
-	-- the template has no tooltip region of its own, so the header bar carries one
 	if info.tooltip then
 		row.Button:SetScript('OnEnter', function(self)
 			SettingsTooltip:SetOwner(self, 'ANCHOR_RIGHT', -10, 0)
@@ -389,7 +341,6 @@ local function createCanvasSection(parent, info, relayout)
 	return row, data
 end
 
--- a wrapped paragraph. Its height depends on the width it is given, so the layout measures it
 local function createCanvasDescription(parent, info)
 	local row = CreateFrame('Frame', nil, parent)
 
@@ -403,7 +354,6 @@ local function createCanvasDescription(parent, info)
 	return row
 end
 
--- the bordered box Blizzard uses for the nameplate preview, without its contents
 local function createCanvasPreview(parent, info)
 	local row = CreateFrame('Frame', nil, parent)
 	row:SetHeight(info.height or PREVIEW_HEIGHT)
@@ -413,7 +363,6 @@ local function createCanvasPreview(parent, info)
 	border:SetPoint('TOPLEFT', 20, 0)
 	border:SetPoint('BOTTOMRIGHT', -20, 0)
 
-	-- the atlas alone barely reads against the panel, so the inside is darkened to set it apart
 	local background = row:CreateTexture(nil, 'BACKGROUND', nil, 1)
 	background:SetPoint('TOPLEFT', border, 'TOPLEFT', 3, -3)
 	background:SetPoint('BOTTOMRIGHT', border, 'BOTTOMRIGHT', -3, 3)
@@ -471,7 +420,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row:SetShown(visible)
 
 			if visible then
-				-- wrapping only settles once the font string has a width to wrap against
 				if row.huddleText and width > 0 then
 					row.huddleText:SetWidth(width)
 					row:SetHeight(row.huddleText:GetStringHeight() + CANVAS_SPACING)
@@ -502,7 +450,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		return true
 	end
 
-	-- a collapsed row is hidden by the layout, and EvaluateState would show it again
 	local function evaluate()
 		for _, row in ipairs(controls) do
 			if isRowVisible(row) then
@@ -511,7 +458,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		end
 	end
 
-	-- expanding brings back rows the layout was skipping, which have to be re-evaluated
 	local function onSectionToggled()
 		relayout()
 		evaluate()
@@ -561,13 +507,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
 			row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
 
-			-- Blizzard only ever inherits this template, never instantiates it, so it declares no
-			-- OnLoad and the concrete row templates each declare their own. That handler's entire
-			-- body is the line below, which Init then asserts on.
 			row.cbrHandles = Settings.CreateCallbackHandleContainer()
 
-			-- SettingsListElementMixin has no EvaluateState of its own beyond visibility, so the
-			-- greying is done here rather than by the row
 			function row:EvaluateState()
 				local enabled = isLinkEnabled(link)
 				self:DisplayEnabled(enabled)
@@ -586,19 +527,15 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row.customControl = info.createControl(row)
 			shiftCanvasControl(row, info)
 
-			-- Blizzard's rows hand their control the row's own tooltip, and a settings widget with
-			-- none still opens an empty one on mouseover
-			if row.customControl.SetTooltipFunc then
-				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
-			end
-
 			if info.onDefaults then
 				customDefaults[#customDefaults + 1] = info.onDefaults
 			end
 
+			if row.customControl.SetTooltipFunc then
+				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
+			end
 			controls[#controls + 1] = row
 		elseif info.type == 'color' and A:IsClassicEra() then
-			-- no colour swatch control exists there
 		else
 			local setting, _, tooltip = createSetting(category, savedvariable, info)
 			local link = resolveLink(info)
@@ -622,7 +559,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			initCanvasRow(row, initializer)
 			controls[#controls + 1] = row
 
-			-- the template hardcodes 200, which is wider than a short label needs
 			if info.buttonWidth then
 				row.Button:SetWidth(info.buttonWidth)
 			end
@@ -651,7 +587,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		if info.type == 'section' and info.settings then
 			local _, state = addRow(info)
 
-			-- grouped rows stay rows of the panel, the section only gates whether they are laid out
 			for _, child in ipairs(info.settings) do
 				addRow(child, state)
 			end
@@ -662,18 +597,14 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 	if #defaults > 0 or #customDefaults > 0 then
 		local function applyDefaults()
-			-- SetValueToDefault applies straight away, where SetValue would leave the new value
-			-- pending for a commit step on any setting carrying the Apply flag
 			for _, setting in ipairs(defaults) do
 				setting:SetValueToDefault()
 			end
 
-			-- a custom row owns its own value, so it has to put that back itself
 			for _, onDefaults in ipairs(customDefaults) do
 				onDefaults()
 			end
 
-			-- a dropdown only reads its value back when the menu is rebuilt
 			for _, row in ipairs(controls) do
 				if row.customControl and row.customControl.GenerateMenu then
 					row.customControl:GenerateMenu()
@@ -1299,7 +1230,6 @@ function A:CreateToggle(parent, label, getValue, setValue)
 		setValue(not not value)
 	end, checkbox)
 
-	-- the template carries no label of its own, since its rows put one on the row instead
 	if label ~= '' then
 		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
 		checkbox.Text:SetPoint('LEFT', checkbox, 'RIGHT', 2, 0)
@@ -1413,7 +1343,6 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 		table.insert(options, { value = name, label = name })
 	end
 
-	-- a sound cannot be previewed in the list itself, so picking one plays it
 	local function OnSelect(name)
 		setValue(name)
 
@@ -1426,8 +1355,6 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	end
 
 	local function ApplyFontPreview(fontString, name)
-		-- Fetch falls back to the default media for an unknown key, so a value that was never set
-		-- still returns a usable path while leaving the name nil
 		local path = name and LSM:Fetch('font', name)
 		if not path then
 			return
