@@ -206,6 +206,10 @@ local CANVAS_PAD_TOP = 10
 local CANVAS_PAD_LEFT = 25
 local CANVAS_SPACING = 9
 
+-- SettingsListMixin hangs its scroll box 15 left of the header, which is what puts a row's label
+-- 47 from the panel edge rather than the 62 its own padding would suggest
+local CANVAS_SCROLL_INSET = -15
+
 --[[
 	Where each template puts its own widget, all relative to the row's CENTER, plus how far the whole
 	lot is nudged right - a canvas row is wider than a list row, so Blizzard's offsets leave the
@@ -423,7 +427,7 @@ end
 
 local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	local scroll = CreateFrame('ScrollFrame', nil, canvas)
-	scroll:SetPoint('TOPLEFT', 0, -CANVAS_PAD_TOP)
+	scroll:SetPoint('TOPLEFT', CANVAS_SCROLL_INSET, -CANVAS_PAD_TOP)
 	scroll:SetPoint('BOTTOMRIGHT', -22, 0)
 	scroll:EnableMouseWheel(true)
 
