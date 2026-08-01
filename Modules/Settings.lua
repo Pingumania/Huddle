@@ -1195,7 +1195,8 @@ end
 
 --[[ namespace:CreateMediaDropdown(_parent_, _mediaType_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a `namespace:CreateDropdown` listing every [LibSharedMedia-3.0](https://www.curseforge.com/wow/addons/libsharedmedia-3-0)
-item of `mediaType` ('font' or 'statusbar'), with each option previewed — rendered in its own font, or showing its own texture.
+item of `mediaType` ('font', 'statusbar' or 'sound'), with each option previewed — rendered in its own font,
+showing its own texture, or played when picked.
 
 `getValue`/`setValue` read/write the selected media name.
 
@@ -1213,7 +1214,8 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	A:ArgCheck(mediaType, 2, 'string')
 	A:ArgCheck(getValue, 3, 'function')
 	A:ArgCheck(setValue, 4, 'function')
-	assert(mediaType == 'font' or mediaType == 'statusbar', "mediaType must be 'font' or 'statusbar'")
+	assert(mediaType == 'font' or mediaType == 'statusbar' or mediaType == 'sound',
+		"mediaType must be 'font', 'statusbar' or 'sound'")
 
 	local LSM = LibStub('LibSharedMedia-3.0', true)
 	assert(LSM, 'LibSharedMedia-3.0 is required for CreateMediaDropdown')
@@ -1221,6 +1223,18 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	local options = {}
 	for _, name in next, LSM:List(mediaType) do
 		table.insert(options, { value = name, label = name })
+	end
+
+	-- a sound cannot be previewed in the list itself, so picking one plays it
+	local function OnSelect(name)
+		setValue(name)
+
+		if mediaType == 'sound' then
+			local path = LSM:Fetch('sound', name)
+			if path then
+				PlaySoundFile(path, 'Master')
+			end
+		end
 	end
 
 	local function ApplyFontPreview(fontString, name)
@@ -1238,7 +1252,7 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 		fontString:SetFontObject(fontObject)
 	end
 
-	local dropdown = A:CreateDropdown(parent, options, getValue, setValue, function(button, option)
+	local dropdown = A:CreateDropdown(parent, options, getValue, OnSelect, function(button, option)
 		if mediaType == 'font' then
 			ApplyFontPreview(button.Text, option.value)
 		elseif mediaType == 'statusbar' then
