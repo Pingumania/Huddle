@@ -413,6 +413,12 @@ local function createCanvasPreview(parent, info)
 	border:SetPoint('TOPLEFT', 20, 0)
 	border:SetPoint('BOTTOMRIGHT', -20, 0)
 
+	-- the atlas alone barely reads against the panel, so the inside is darkened to set it apart
+	local background = row:CreateTexture(nil, 'BACKGROUND', nil, 1)
+	background:SetPoint('TOPLEFT', border, 'TOPLEFT', 3, -3)
+	background:SetPoint('BOTTOMRIGHT', border, 'BOTTOMRIGHT', -3, 3)
+	background:SetColorTexture(0, 0, 0, 0.3)
+
 	if info.title then
 		local label = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
 		label:SetJustifyH('LEFT')
@@ -512,6 +518,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	end
 
 	local defaults = {}
+	local customDefaults = {}
 
 	local function addRow(info, section)
 		local row, sectionState
@@ -584,6 +591,11 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			if row.customControl.SetTooltipFunc then
 				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
 			end
+
+			if info.onDefaults then
+				customDefaults[#customDefaults + 1] = info.onDefaults
+			end
+
 			controls[#controls + 1] = row
 		elseif info.type == 'color' and A:IsClassicEra() then
 			-- no colour swatch control exists there
@@ -648,10 +660,24 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		end
 	end
 
-	if #defaults > 0 then
+	if #defaults > 0 or #customDefaults > 0 then
 		local function applyDefaults()
+			-- SetValueToDefault applies straight away, where SetValue would leave the new value
+			-- pending for a commit step on any setting carrying the Apply flag
 			for _, setting in ipairs(defaults) do
-				setting:SetValue(setting:GetDefaultValue())
+				setting:SetValueToDefault()
+			end
+
+			-- a custom row owns its own value, so it has to put that back itself
+			for _, onDefaults in ipairs(customDefaults) do
+				onDefaults()
+			end
+
+			-- a dropdown only reads its value back when the menu is rebuilt
+			for _, row in ipairs(controls) do
+				if row.customControl and row.customControl.GenerateMenu then
+					row.customControl:GenerateMenu()
+				end
 			end
 
 			evaluate()
@@ -900,6 +926,7 @@ A:RegisterSettings('MyAddOnDB', {
         title = 'A Custom Row',
         tooltip = 'Optional tooltip', -- (optional)
         requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+        onDefaults = function() end, -- (optional) the row owns its value, so it resets it itself
         createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
             return A:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
         end,
