@@ -286,21 +286,30 @@ local function createControlInitializer(setting, info, tooltip)
 	error('type is invalid')
 end
 
+--[[
+	Two shapes of section. `createContent` draws its own frame inside the section, which the section
+	grows to fit. `settings` instead groups the rows that follow it, which stay ordinary rows of the
+	panel - so they keep their dependencies, their defaults and their Blizzard templates, and the
+	section only decides whether the layout skips them.
+]]
 local function createCanvasSection(parent, info, relayout)
 	local data = {name = info.title, expanded = not not info.expanded}
 	local initializer = Settings.CreateElementInitializer('SettingsExpandableSectionTemplate', data)
 	local row = CreateFrame('EventFrame', nil, parent, 'SettingsExpandableSectionTemplate')
 
-	local body = info.createContent(row)
-	body:SetParent(row)
-	body:ClearAllPoints()
-	body:SetPoint('TOPLEFT', 0, -SECTION_HEADER_HEIGHT)
-	body:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
+	local body
+	if info.createContent then
+		body = info.createContent(row)
+		body:SetParent(row)
+		body:ClearAllPoints()
+		body:SetPoint('TOPLEFT', 0, -SECTION_HEADER_HEIGHT)
+		body:SetPoint('TOPRIGHT', 0, -SECTION_HEADER_HEIGHT)
+	end
 
 	-- the template's mixin leaves all three of these to whoever implements a section, the same way
 	-- SettingsKeybindingSectionMixin has to swap its own atlas
 	function row:CalculateHeight()
-		if not data.expanded then
+		if not body or not data.expanded then
 			return SECTION_HEADER_HEIGHT
 		end
 
@@ -311,7 +320,10 @@ local function createCanvasSection(parent, info, relayout)
 		self.Button.Right:SetAtlas(expanded and 'Options_ListExpand_Right_Expanded' or 'Options_ListExpand_Right',
 			TextureKitConstants.UseAtlasSize)
 
-		body:SetShown(expanded)
+		if body then
+			body:SetShown(expanded)
+		end
+
 		relayout()
 	end
 
@@ -319,7 +331,7 @@ local function createCanvasSection(parent, info, relayout)
 	row:SetHeight(row:CalculateHeight())
 	row:OnExpandedChanged(data.expanded)
 
-	return row
+	return row, data
 end
 
 -- the bordered box Blizzard uses for the nameplate preview, without its contents
@@ -368,13 +380,22 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	local settingsByKey = {}
 	local links = {}
 
+	local function isRowVisible(row)
+		return not (row.huddleSection and not row.huddleSection.expanded)
+	end
+
 	local function relayout()
 		local offset = 0
 		for _, row in ipairs(order) do
-			row:ClearAllPoints()
-			row:SetPoint('TOPLEFT', CANVAS_PAD_LEFT, -offset)
-			row:SetPoint('TOPRIGHT', 0, -offset)
-			offset = offset + row:GetHeight() + CANVAS_SPACING
+			local visible = isRowVisible(row)
+			row:SetShown(visible)
+
+			if visible then
+				row:ClearAllPoints()
+				row:SetPoint('TOPLEFT', CANVAS_PAD_LEFT, -offset)
+				row:SetPoint('TOPRIGHT', 0, -offset)
+				offset = offset + row:GetHeight() + CANVAS_SPACING
+			end
 		end
 
 		content:SetHeight(math.max(offset, 1))
@@ -395,16 +416,25 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		return true
 	end
 
+	-- a collapsed row is hidden by the layout, and EvaluateState would show it again
 	local function evaluate()
 		for _, row in ipairs(controls) do
-			row:EvaluateState()
+			if isRowVisible(row) then
+				row:EvaluateState()
+			end
 		end
+	end
+
+	-- expanding brings back rows the layout was skipping, which have to be re-evaluated
+	local function onSectionToggled()
+		relayout()
+		evaluate()
 	end
 
 	local defaults = {}
 
-	for _, info in ipairs(settings) do
-		local row
+	local function addRow(info, section)
+		local row, sectionState
 
 		if info.type == 'header' then
 			row = CreateFrame('Frame', nil, content, 'SettingsListSectionHeaderTemplate')
@@ -416,9 +446,9 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row = createCanvasPreview(content, info)
 		elseif info.type == 'section' then
 			A:ArgCheck(info.title, 3, 'string')
-			A:ArgCheck(info.createContent, 3, 'function')
+			assert(info.createContent or info.settings, 'a section needs either createContent or settings')
 
-			row = createCanvasSection(content, info, relayout)
+			row, sectionState = createCanvasSection(content, info, onSectionToggled)
 		elseif info.type == 'custom' then
 			A:ArgCheck(info.title, 3, 'string')
 			A:ArgCheck(info.createControl, 3, 'function')
@@ -507,7 +537,23 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		end
 
 		if row then
+			row.huddleSection = section
 			order[#order + 1] = row
+		end
+
+		return row, sectionState
+	end
+
+	for _, info in ipairs(settings) do
+		if info.type == 'section' and info.settings then
+			local _, state = addRow(info)
+
+			-- grouped rows stay rows of the panel, the section only gates whether they are laid out
+			for _, child in ipairs(info.settings) do
+				addRow(child, state)
+			end
+		else
+			addRow(info)
 		end
 	end
 
@@ -758,11 +804,21 @@ A:RegisterSettings('MyAddOnDB', {
         type = 'section',
         title = 'A Collapsible Section',
         expanded = false, -- (optional) defaults to false, so sections start collapsed
-        createContent = function(section) -- called once per physical row frame (rows get recycled)
+        createContent = function(section) -- draws its own content, which the section grows to fit
             local content = CreateFrame('Frame', nil, section)
             content:SetHeight(80) -- the height is read back to size the expanded section
             return content
         end,
+    },
+    {
+        type = 'section',
+        title = 'A Collapsible Group',
+        expanded = false,
+        -- instead of createContent, a section can group settings. They stay ordinary rows of this
+        -- panel, keeping their dependencies and defaults, and collapsing only hides them
+        settings = {
+            {key = 'myGroupedToggle', type = 'toggle', title = 'Grouped', default = false},
+        },
     },
     {
         type = 'preview',
