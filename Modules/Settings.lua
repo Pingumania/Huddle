@@ -218,7 +218,7 @@ local CANVAS_TEMPLATES = {
 	color = 'SettingsColorSwatchControlTemplate',
 }
 
-local CANVAS_TYPES = {custom = true, preview = true, section = true}
+local CANVAS_TYPES = {custom = true, description = true, preview = true, section = true}
 
 local function needsCanvas(settings)
 	for _, info in next, settings do
@@ -356,6 +356,20 @@ local function createCanvasSection(parent, info, relayout)
 	return row, data
 end
 
+-- a wrapped paragraph. Its height depends on the width it is given, so the layout measures it
+local function createCanvasDescription(parent, info)
+	local row = CreateFrame('Frame', nil, parent)
+
+	row.huddleText = row:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
+	row.huddleText:SetJustifyH('LEFT')
+	row.huddleText:SetPoint('TOPLEFT')
+	row.huddleText:SetText(info.title)
+
+	row:SetHeight(1)
+
+	return row
+end
+
 -- the bordered box Blizzard uses for the nameplate preview, without its contents
 local function createCanvasPreview(parent, info)
 	local row = CreateFrame('Frame', nil, parent)
@@ -391,8 +405,11 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	local content = CreateFrame('Frame', nil, scroll)
 	content:SetSize(1, 1)
 	scroll:SetScrollChild(content)
+	local relayout
+
 	scroll:SetScript('OnSizeChanged', function(_, width)
 		content:SetWidth(width)
+		relayout()
 	end)
 
 	ScrollUtil.InitScrollFrameWithScrollBar(scroll, scrollBar)
@@ -406,13 +423,21 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		return not (row.huddleSection and not row.huddleSection.expanded)
 	end
 
-	local function relayout()
+	function relayout()
+		local width = content:GetWidth() - CANVAS_PAD_LEFT
+
 		local offset = 0
 		for _, row in ipairs(order) do
 			local visible = isRowVisible(row)
 			row:SetShown(visible)
 
 			if visible then
+				-- wrapping only settles once the font string has a width to wrap against
+				if row.huddleText and width > 0 then
+					row.huddleText:SetWidth(width)
+					row:SetHeight(row.huddleText:GetStringHeight() + CANVAS_SPACING)
+				end
+
 				row:ClearAllPoints()
 				row:SetPoint('TOPLEFT', CANVAS_PAD_LEFT, -offset)
 				row:SetPoint('TOPRIGHT', 0, -offset)
@@ -462,6 +487,10 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row = CreateFrame('Frame', nil, content, 'SettingsListSectionHeaderTemplate')
 			row:SetHeight(templateHeight('SettingsListSectionHeaderTemplate'))
 			initCanvasRow(row, CreateSettingsListSectionHeaderInitializer(info.title, info.tooltip))
+		elseif info.type == 'description' then
+			A:ArgCheck(info.title, 3, 'string')
+
+			row = createCanvasDescription(content, info)
 		elseif info.type == 'preview' then
 			A:ArgCheck(info.createPreview, 3, 'function')
 
@@ -826,6 +855,10 @@ A:RegisterSettings('MyAddOnDB', {
         type = 'header',
         title = 'A Section Header',
         tooltip = 'Optional tooltip for the header', -- (optional)
+    },
+    {
+        type = 'description',
+        title = 'A paragraph of explanatory text, wrapped to the width of the panel.',
     },
     {
         type = 'custom',
