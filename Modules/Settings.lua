@@ -206,9 +206,38 @@ local CANVAS_PAD_TOP = 10
 local CANVAS_PAD_LEFT = 25
 local CANVAS_SPACING = 9
 
--- where every Blizzard control row puts its widget
-local CANVAS_CONTROL_X = -48
-local CANVAS_CONTROL_Y = 3
+--[[
+	Where each template puts its own widget, all relative to the row's CENTER, plus how far the whole
+	lot is nudged right - a canvas row is wider than a list row, so Blizzard's offsets leave the
+	widgets sitting well left of centre. Shifting them all by the same amount keeps the relative
+	alignment Blizzard already tuned; anchoring them individually to the right edge does not, since
+	these templates do not report a usable width.
+]]
+local CANVAS_CONTROL_SHIFT = 40
+local CANVAS_LABEL_X = -85
+
+local CANVAS_CONTROL_ANCHORS = {
+	toggle = {key = 'Checkbox', x = -80, y = 0},
+	toggleWithButton = {key = 'Checkbox', x = -80, y = 0},
+	slider = {key = 'SliderWithSteppers', x = -80, y = 3},
+	menu = {key = 'Control', x = -48, y = 3},
+	color = {key = 'ColorSwatch', x = -73, y = 0},
+	custom = {key = 'customControl', x = -48, y = 3},
+}
+
+local function shiftCanvasControl(row, info)
+	local anchor = CANVAS_CONTROL_ANCHORS[info.type]
+	local control = anchor and row[anchor.key]
+	if not control then
+		return
+	end
+
+	-- toggleWithButton's button hangs off the checkbox, so it comes along on its own
+	control:ClearAllPoints()
+	control:SetPoint('LEFT', row, 'CENTER', anchor.x + CANVAS_CONTROL_SHIFT, anchor.y)
+
+	row.Text:SetPoint('RIGHT', row, 'CENTER', CANVAS_LABEL_X + CANVAS_CONTROL_SHIFT, 0)
+end
 
 local CANVAS_TEMPLATES = {
 	toggle = 'SettingsCheckboxControlTemplate',
@@ -544,7 +573,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			initCanvasRow(row, initializer)
 
 			row.customControl = info.createControl(row)
-			row.customControl:SetPoint('LEFT', row, 'CENTER', CANVAS_CONTROL_X, CANVAS_CONTROL_Y)
+			shiftCanvasControl(row, info)
 
 			-- Blizzard's rows hand their control the row's own tooltip, and a settings widget with
 			-- none still opens an empty one on mouseover
@@ -581,6 +610,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			if info.buttonWidth then
 				row.Button:SetWidth(info.buttonWidth)
 			end
+
+			shiftCanvasControl(row, info)
 
 			defaults[#defaults + 1] = setting
 
