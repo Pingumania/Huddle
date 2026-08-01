@@ -212,6 +212,7 @@ local CANVAS_CONTROL_Y = 3
 
 local CANVAS_TEMPLATES = {
 	toggle = 'SettingsCheckboxControlTemplate',
+	toggleWithButton = 'SettingsCheckboxWithButtonControlTemplate',
 	slider = 'SettingsSliderControlTemplate',
 	menu = 'SettingsDropdownControlTemplate',
 	color = 'SettingsColorSwatchControlTemplate',
@@ -257,6 +258,14 @@ end
 local function createControlInitializer(setting, info, tooltip)
 	if info.type == 'toggle' then
 		return Settings.CreateCheckboxInitializer(setting, nil, tooltip)
+	elseif info.type == 'toggleWithButton' then
+		A:ArgCheck(info.buttonText, 3, 'string')
+		A:ArgCheck(info.onClick, 3, 'function')
+
+		-- the button stays clickable while the toggle is off, which is what a preview wants
+		local clickRequiresSet = false
+		return CreateSettingsCheckboxWithButtonInitializer(setting, info.buttonText, info.onClick, nil,
+			clickRequiresSet, tooltip)
 	elseif info.type == 'slider' then
 		A:ArgCheck(info.minValue, 3, 'number')
 		A:ArgCheck(info.maxValue, 3, 'number')
@@ -539,6 +548,11 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			initCanvasRow(row, initializer)
 			controls[#controls + 1] = row
 
+			-- the template hardcodes 200, which is wider than a short label needs
+			if info.buttonWidth then
+				row.Button:SetWidth(info.buttonWidth)
+			end
+
 			defaults[#defaults + 1] = setting
 
 			setting:SetValueChangedCallback(function(changed, value)
@@ -764,6 +778,15 @@ A:RegisterSettings('MyAddOnDB', {
         title = 'My Toggle',
         tooltip = 'Longer description of the toggle in a tooltip',
         default = false,
+    },
+    {
+        key = 'myToggleWithButton',
+        type = 'toggleWithButton', -- a checkbox with a button beside it, on one row
+        title = 'My Toggle',
+        default = false,
+        buttonText = 'Sample',
+        buttonWidth = 100, -- (optional) the template's own width is 200
+        onClick = function() end, -- the button stays clickable while the toggle is off
     },
     {
         key = 'mySlider',
