@@ -331,6 +331,19 @@ local function createCanvasSection(parent, info, relayout)
 	row:SetHeight(row:CalculateHeight())
 	row:OnExpandedChanged(data.expanded)
 
+	-- the template has no tooltip region of its own, so the header bar carries one
+	if info.tooltip then
+		row.Button:SetScript('OnEnter', function(self)
+			SettingsTooltip:SetOwner(self, 'ANCHOR_RIGHT', -10, 0)
+			Settings.InitTooltip(info.title, info.tooltip)
+			SettingsTooltip:Show()
+		end)
+
+		row.Button:SetScript('OnLeave', function()
+			SettingsTooltip:Hide()
+		end)
+	end
+
 	return row, data
 end
 
@@ -803,6 +816,7 @@ A:RegisterSettings('MyAddOnDB', {
     {
         type = 'section',
         title = 'A Collapsible Section',
+        tooltip = 'Optional tooltip, shown over the header bar', -- (optional)
         expanded = false, -- (optional) defaults to false, so sections start collapsed
         createContent = function(section) -- draws its own content, which the section grows to fit
             local content = CreateFrame('Frame', nil, section)
