@@ -98,3 +98,13 @@ function A:DisableSharpening(texture)
 	texture:SetSnapToPixelGrid(false)
 	texture:SetTexelSnappingBias(0)
 end
+
+--[[ namespace:EnableSharpening(_texture_) ![](https://img.shields.io/badge/function-blue)
+Puts `texture` back on the pixel grid, undoing `namespace:DisableSharpening`. The bias is the
+engine default rather than anything the texture carried before, so only call this on textures the
+addon sharpened itself.
+--]]
+function A:EnableSharpening(texture)
+	texture:SetSnapToPixelGrid(true)
+	texture:SetTexelSnappingBias(0.51)
+end
