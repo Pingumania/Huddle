@@ -464,6 +464,12 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 			row.customControl = info.createControl(row)
 			row.customControl:SetPoint('LEFT', row, 'CENTER', CANVAS_CONTROL_X, CANVAS_CONTROL_Y)
+
+			-- Blizzard's rows hand their control the row's own tooltip, and a settings widget with
+			-- none still opens an empty one on mouseover
+			if row.customControl.SetTooltipFunc then
+				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
+			end
 			controls[#controls + 1] = row
 		elseif info.type == 'color' and A:IsClassicEra() then
 			-- no colour swatch control exists there
@@ -1090,20 +1096,27 @@ do
 end
 
 --[[ namespace:CreateToggle(_parent_, _label_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
-Creates a native checkbox (Blizzard's own `UICheckButtonTemplate`) with a text label.
-`getValue`/`setValue` read/write the checked state.
+Creates a native checkbox (Blizzard's own `SettingsCheckboxTemplate`, the same widget the settings
+panel's own rows use) with an optional text label to its right - pass an empty string for a row that
+carries its own label. `getValue`/`setValue` read/write the checked state.
 --]]
 function A:CreateToggle(parent, label, getValue, setValue)
 	A:ArgCheck(label, 2, 'string')
 	A:ArgCheck(getValue, 3, 'function')
 	A:ArgCheck(setValue, 4, 'function')
 
-	local checkbox = CreateFrame('CheckButton', nil, parent, 'UICheckButtonTemplate')
-	checkbox.Text:SetText(label)
-	checkbox:SetChecked(getValue())
-	checkbox:SetScript('OnClick', function(self)
-		setValue(not not self:GetChecked())
-	end)
+	local checkbox = CreateFrame('CheckButton', nil, parent, 'SettingsCheckboxTemplate')
+	checkbox:Init(getValue())
+	checkbox:RegisterCallback('OnValueChanged', function(_, value)
+		setValue(not not value)
+	end, checkbox)
+
+	-- the template carries no label of its own, since its rows put one on the row instead
+	if label ~= '' then
+		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
+		checkbox.Text:SetPoint('LEFT', checkbox, 'RIGHT', 2, 0)
+		checkbox.Text:SetText(label)
+	end
 
 	return checkbox
 end
