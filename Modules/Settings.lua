@@ -846,7 +846,9 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	end
 
 	local function ApplyFontPreview(fontString, name)
-		local path = LSM:Fetch('font', name)
+		-- Fetch falls back to the default media for an unknown key, so a value that was never set
+		-- still returns a usable path while leaving the name nil
+		local path = name and LSM:Fetch('font', name)
 		if not path then
 			return
 		end
