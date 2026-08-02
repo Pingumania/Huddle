@@ -437,6 +437,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		end
 
 		content:SetHeight(math.max(offset, 1))
+		scrollBar:SetShown(content:GetHeight() > scroll:GetHeight() + 1)
 	end
 
 	local function isLinkEnabled(link)
