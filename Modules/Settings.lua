@@ -1235,8 +1235,9 @@ end
 
 --[[ namespace:CreateToggle(_parent_, _label_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a native checkbox (Blizzard's own `SettingsCheckboxTemplate`, the same widget the settings
-panel's own rows use) with an optional text label to its right - pass an empty string for a row that
-carries its own label. `getValue`/`setValue` read/write the checked state.
+panel's own rows use) with an optional text label to its left, matching how the panel's own rows
+read - pass an empty string for a row that carries its own label. `getValue`/`setValue` read/write
+the checked state.
 --]]
 function A:CreateToggle(parent, label, getValue, setValue)
 	A:ArgCheck(label, 2, 'string')
@@ -1250,8 +1251,9 @@ function A:CreateToggle(parent, label, getValue, setValue)
 	end, checkbox)
 
 	if label ~= '' then
-		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
-		checkbox.Text:SetPoint('LEFT', checkbox, 'RIGHT', 2, 0)
+		-- same font object SettingsListElementTemplate gives its own row labels
+		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
+		checkbox.Text:SetPoint('RIGHT', checkbox, 'LEFT', -2, 0)
 		checkbox.Text:SetText(label)
 	end
 
