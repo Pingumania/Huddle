@@ -486,11 +486,19 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			A:ArgCheck(info.createPreview, 3, 'function')
 
 			row = createCanvasPreview(content, info)
+
+			if info.onDefaults then
+				customDefaults[#customDefaults + 1] = info.onDefaults
+			end
 		elseif info.type == 'section' then
 			A:ArgCheck(info.title, 3, 'string')
 			assert(info.createContent or info.settings, 'a section needs either createContent or settings')
 
 			row, sectionState = createCanvasSection(content, info, onSectionToggled)
+
+			if info.onDefaults then
+				customDefaults[#customDefaults + 1] = info.onDefaults
+			end
 		elseif info.type == 'custom' then
 			A:ArgCheck(info.title, 3, 'string')
 			A:ArgCheck(info.createControl, 3, 'function')
@@ -870,6 +878,7 @@ A:RegisterSettings('MyAddOnDB', {
         title = 'A Collapsible Section',
         tooltip = 'Optional tooltip, shown over the header bar', -- (optional)
         expanded = false, -- (optional) defaults to false, so sections start collapsed
+        onDefaults = function() end, -- (optional) the section owns its values, so it resets them itself
         createContent = function(section) -- draws its own content, which the section grows to fit
             local content = CreateFrame('Frame', nil, section)
             content:SetHeight(80) -- the height is read back to size the expanded section
@@ -890,6 +899,7 @@ A:RegisterSettings('MyAddOnDB', {
         type = 'preview',
         title = 'PREVIEW', -- (optional) label drawn inside the box, defaults to PREVIEW
         height = 195, -- (optional) row height, defaults to 195
+        onDefaults = function() end, -- (optional) the row owns its values, so it resets them itself
         createPreview = function(panel) -- called once per physical row frame (rows get recycled)
             local preview = CreateFrame('Frame', nil, panel)
             preview:SetPoint('CENTER')
