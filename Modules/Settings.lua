@@ -206,6 +206,12 @@ local function shiftCanvasControl(row, info)
 		return
 	end
 
+	-- a custom row holding a slider lines up with the real slider rows rather than with the
+	-- dropdowns the custom anchor is measured for
+	if info.type == 'custom' and control.Slider then
+		anchor = CANVAS_CONTROL_ANCHORS.slider
+	end
+
 	control:ClearAllPoints()
 	control:SetPoint('LEFT', row, 'CENTER', anchor.x + CANVAS_CONTROL_SHIFT, anchor.y)
 
