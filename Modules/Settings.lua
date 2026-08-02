@@ -48,7 +48,9 @@ do
 	function canvasMixin:SetDefaultsHandler(callback)
 		local button = self:GetParent().Header.DefaultsButton
 		button:Show()
-		button:SetScript('OnClick', callback)
+		button:SetScript('OnClick', function()
+			StaticPopup_Show(defaultsPopup, nil, nil, callback)
+		end)
 	end
 
 	function createCanvas(name)
@@ -64,7 +66,9 @@ do
 		local title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
 		title:SetPoint('TOPLEFT', 7, -22)
 		title:SetJustifyH('LEFT')
-		title:SetText(name and string.format('%s - %s', addonName, name) or addonName)
+		-- sub-categories already sit under the addon in the settings tree, so only the root
+		-- canvas carries the addon's name
+		title:SetText(name or addonName)
 		header.Title = title
 
 		local defaults = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
@@ -614,9 +618,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			evaluate()
 		end
 
-		canvas:SetDefaultsHandler(function()
-			StaticPopup_Show(defaultsPopup, nil, nil, applyDefaults)
-		end)
+		canvas:SetDefaultsHandler(applyDefaults)
 	end
 
 	relayout()
@@ -943,7 +945,7 @@ Registers a canvas sub-category. This does not handle savedvariables.
 `name` must be unique, and `callback` is called with a canvas `frame` as payload.
 
 Canvas frame has a custom method `SetDefaultsHandler` which takes a callback as arg1.
-This callback is triggered when the "Defaults" button is clicked.
+This callback is triggered when the "Defaults" button is clicked and the player confirms.
 --]]
 function A:RegisterSubSettingsCanvas(name, callback)
 	A:ArgCheck(name, 1, 'string')
