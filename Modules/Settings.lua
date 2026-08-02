@@ -226,7 +226,10 @@ local CANVAS_TEMPLATES = {
 	color = 'SettingsColorSwatchControlTemplate',
 }
 
-local CANVAS_TYPES = {custom = true, description = true, preview = true, section = true}
+local CANVAS_TYPES = {custom = true, description = true, preview = true, section = true, toggles = true}
+
+-- gap between one toggle's label and the next toggle on a shared row
+local TOGGLES_GAP = 24
 
 local function needsCanvas(settings)
 	for _, info in next, settings do
@@ -554,6 +557,83 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
 			end
 			controls[#controls + 1] = row
+		elseif info.type == 'toggles' then
+			A:ArgCheck(info.settings, 3, 'table')
+
+			local link = resolveLink(info)
+			local initializer = Settings.CreateElementInitializer('SettingsListElementTemplate',
+				{name = info.title or '', tooltip = info.tooltip})
+
+			if link then
+				initializer:AddModifyPredicate(function()
+					return isLinkEnabled(link)
+				end)
+
+				if link.indent then
+					initializer:Indent()
+				end
+			end
+
+			row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
+			row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
+			row.cbrHandles = Settings.CreateCallbackHandleContainer()
+
+			initCanvasRow(row, initializer)
+
+			-- the first checkbox lands where a lone toggle's would, and each one after it follows
+			-- the previous label, so the row reads as one continuous group however long the labels
+			row.huddleToggles = {}
+
+			local previous
+			for _, entry in ipairs(info.settings) do
+				local setting = createSetting(category, savedvariable, entry)
+				links[entry.key] = link
+				settingsByKey[entry.key] = setting
+
+				local checkbox = CreateFrame('CheckButton', nil, row, 'SettingsCheckboxTemplate')
+				checkbox:Init(setting:GetValue())
+				checkbox:RegisterCallback('OnValueChanged', function(_, value)
+					setting:SetValue(not not value)
+				end, checkbox)
+
+				checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
+				checkbox.Text:SetPoint('LEFT', checkbox, 'RIGHT', 2, 0)
+				checkbox.Text:SetText(entry.title)
+
+				if previous then
+					checkbox:SetPoint('LEFT', previous.Text, 'RIGHT', TOGGLES_GAP, 0)
+				else
+					checkbox:SetPoint('LEFT', row, 'CENTER',
+						CANVAS_CONTROL_ANCHORS.toggle.x + CANVAS_CONTROL_SHIFT, CANVAS_CONTROL_ANCHORS.toggle.y)
+				end
+
+				defaults[#defaults + 1] = setting
+
+				setting:SetValueChangedCallback(function(changed, value)
+					onSettingChanged(changed, value)
+					checkbox:SetValue(value)
+					evaluate()
+				end)
+
+				A:TriggerOptionCallback(entry.key, setting:GetValue())
+
+				row.huddleToggles[#row.huddleToggles + 1] = checkbox
+				previous = checkbox
+			end
+
+			row.Text:SetPoint('RIGHT', row, 'CENTER', CANVAS_LABEL_X + CANVAS_CONTROL_SHIFT, 0)
+
+			function row:EvaluateState()
+				local enabled = isLinkEnabled(link)
+				self:DisplayEnabled(enabled)
+
+				for _, checkbox in ipairs(self.huddleToggles) do
+					checkbox:SetEnabled(enabled)
+					checkbox:SetAlpha(enabled and 1 or 0.4)
+				end
+			end
+
+			controls[#controls + 1] = row
 		elseif info.type == 'color' and A:IsClassicEra() then
 		else
 			local setting, _, tooltip = createSetting(category, savedvariable, info)
@@ -878,6 +958,19 @@ A:RegisterSettings('MyAddOnDB', {
         createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
             return A:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
         end,
+    },
+    {
+        -- several checkboxes sharing one row. The first sits exactly where a lone 'toggle' would,
+        -- each one after it follows the previous label. Every entry is a real setting with its own
+        -- key and default; the row's own requires/gatedBy gates all of them together
+        type = 'toggles',
+        title = 'A Shared Row', -- (optional) the row's label, on the left like any other row
+        tooltip = 'Optional tooltip', -- (optional)
+        requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+        settings = {
+            {key = 'myFirstToggle', type = 'toggle', title = 'First', default = false},
+            {key = 'mySecondToggle', type = 'toggle', title = 'Second', default = false},
+        },
     },
     {
         type = 'section',
