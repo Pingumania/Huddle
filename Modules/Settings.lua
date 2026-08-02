@@ -1266,12 +1266,15 @@ Creates a native dropdown-with-steppers (Blizzard's own `SettingsDropdownWithBut
 widget `Settings.CreateDropdown` rows use). `options` is an array of `{value = ..., label = ...}` tables.
 `getValue`/`setValue` read/write the selected value.
 
+`options` may instead be a function returning that array, which is called every time the menu opens,
+for lists that can still grow after the dropdown is built.
+
 `initializeItem`, if given, is called as `initializeItem(button, option)` for each list item, to customize its
 appearance (e.g. font, an attached texture — see `namespace:CreateMediaDropdown`). It may optionally
 return `width, height` to widen the row beyond its default text-driven size.
 --]]
 function A:CreateDropdown(parent, options, getValue, setValue, initializeItem)
-	A:ArgCheck(options, 2, 'table')
+	assert(type(options) == 'table' or type(options) == 'function', 'arg2 must be a table or a function')
 	A:ArgCheck(getValue, 3, 'function')
 	A:ArgCheck(setValue, 4, 'function')
 
@@ -1291,7 +1294,7 @@ function A:CreateDropdown(parent, options, getValue, setValue, initializeItem)
 	end
 
 	container.Dropdown:SetupMenu(function(_, rootDescription)
-		for _, option in next, options do
+		for _, option in next, (type(options) == 'function' and options() or options) do
 			local radio = rootDescription:CreateHighlightRadio(option.label, function()
 				return getValue() == option.value
 			end, function()
@@ -1338,9 +1341,15 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	local LSM = LibStub('LibSharedMedia-3.0', true)
 	assert(LSM, 'LibSharedMedia-3.0 is required for CreateMediaDropdown')
 
-	local options = {}
-	for _, name in next, LSM:List(mediaType) do
-		table.insert(options, { value = name, label = name })
+	-- rebuilt every time the menu opens, because addons that load after this one register their
+	-- own media, and settings panels are built as each addon loads
+	local function GetOptions()
+		local options = {}
+		for _, name in next, LSM:List(mediaType) do
+			table.insert(options, { value = name, label = name })
+		end
+
+		return options
 	end
 
 	local function OnSelect(name)
@@ -1367,7 +1376,7 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 		fontString:SetFontObject(fontObject)
 	end
 
-	local dropdown = A:CreateDropdown(parent, options, getValue, OnSelect, function(button, option)
+	local dropdown = A:CreateDropdown(parent, GetOptions, getValue, OnSelect, function(button, option)
 		if mediaType == 'font' then
 			ApplyFontPreview(button.Text, option.value)
 		elseif mediaType == 'statusbar' then
