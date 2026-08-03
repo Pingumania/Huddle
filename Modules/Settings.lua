@@ -107,6 +107,9 @@ end
 
 local SECTION_HEADER_HEIGHT = 30
 local SECTION_BOTTOM_PADDING = 10
+local SECTION_TOGGLE_INSET = 8
+local SECTION_LABEL_GAP = 4
+local SECTION_TOGGLE_SCALE = 0.75
 
 local PREVIEW_HEIGHT = 195
 
@@ -558,6 +561,40 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 			row, sectionState = createCanvasSection(content, info, onSectionToggled)
 
+			if info.key then
+				local setting = createSetting(category, savedvariable, {
+					key = info.key,
+					title = info.title,
+					type = 'toggle',
+					default = info.default,
+				})
+
+				settingsByKey[info.key] = setting
+
+				local checkbox = CreateFrame('CheckButton', nil, row, 'SettingsCheckboxTemplate')
+				checkbox:SetScale(SECTION_TOGGLE_SCALE)
+				checkbox:SetPoint('LEFT', row.Button, 'LEFT', SECTION_TOGGLE_INSET, 2)
+				checkbox:SetFrameLevel(row.Button:GetFrameLevel() + 1)
+
+				row.Button.Text:ClearAllPoints()
+				row.Button.Text:SetPoint('LEFT', checkbox, 'RIGHT', SECTION_LABEL_GAP, 0)
+
+				checkbox:Init(setting:GetValue())
+				checkbox:RegisterCallback('OnValueChanged', function(_, value)
+					setting:SetValue(not not value)
+				end, checkbox)
+
+				defaults[#defaults + 1] = setting
+
+				setting:SetValueChangedCallback(function(changed, value)
+					onSettingChanged(changed, value)
+					checkbox:SetValue(value)
+					evaluate()
+				end)
+
+				A:TriggerOptionCallback(info.key, setting:GetValue())
+			end
+
 			if info.onDefaults then
 				customDefaults[#customDefaults + 1] = info.onDefaults
 			end
@@ -740,6 +777,10 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			local _, state = addRow(info)
 
 			for _, child in ipairs(info.settings) do
+				if info.key and not child.requires and not child.gatedBy then
+					child.gatedBy = info.key
+				end
+
 				addRow(child, state)
 			end
 		else
@@ -1032,6 +1073,20 @@ A:RegisterSettings('MyAddOnDB', {
         -- panel, keeping their dependencies and defaults, and collapsing only hides them
         settings = {
             {key = 'myGroupedToggle', type = 'toggle', title = 'Grouped', default = false},
+        },
+    },
+    {
+        -- giving a section a key puts a toggle on the header bar itself, so the whole group reads
+        -- as one line while collapsed. It gates every setting inside it that does not already
+        -- depend on something more specific
+        type = 'section',
+        title = 'A Collapsible Group With A Toggle',
+        key = 'myGroupToggle',
+        default = false,
+        expanded = false,
+        columns = 2, -- (optional) pack with the next collapsed 2-column row, half width each
+        settings = {
+            {key = 'myGatedToggle', type = 'toggle', title = 'Gated', default = false},
         },
     },
     {
