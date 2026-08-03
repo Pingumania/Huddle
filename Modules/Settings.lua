@@ -113,6 +113,8 @@ local SECTION_TOGGLE_SCALE = 0.75
 
 local PREVIEW_HEIGHT = 195
 
+local settingsRegistry = {}
+
 local function createSetting(category, savedvariable, info)
 	A:ArgCheck(info.key, 3, 'string')
 	A:ArgCheck(info.title, 3, 'string')
@@ -133,6 +135,8 @@ local function createSetting(category, savedvariable, info)
 	local uniqueKey = savedvariable .. '_' .. info.key
 	local setting = Settings.RegisterAddOnSetting(category, uniqueKey, info.key, _G[savedvariable],
 		type(info.default), title, info.default)
+
+	settingsRegistry[info.key] = setting
 
 	return setting, title, tooltip
 end
@@ -303,6 +307,7 @@ local function createCanvasSection(parent, info, relayout)
 	local data = {name = info.title, expanded = not not info.expanded}
 	local initializer = Settings.CreateElementInitializer('SettingsExpandableSectionTemplate', data)
 	local row = CreateFrame('EventFrame', nil, parent, 'SettingsExpandableSectionTemplate')
+	row.Button:SetPoint('TOPRIGHT', -6, 0)
 
 	local body
 	if info.createContent then
@@ -1208,8 +1213,13 @@ function A:SetOption(key, value)
 	local savedvariable = self.optionVariables[key]
 	assert(_G[savedvariable][key] ~= nil, "key doesn't exist")
 
-	_G[savedvariable][key] = value -- this circumvents the setting system, bad?
-	A:TriggerOptionCallback(key, value)
+	local setting = settingsRegistry[key]
+	if setting then
+		setting:SetValue(value)
+	else
+		_G[savedvariable][key] = value
+		A:TriggerOptionCallback(key, value)
+	end
 end
 
 --[[ namespace:AreOptionsLoaded([_key_]) ![](https://img.shields.io/badge/function-blue)
