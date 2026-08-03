@@ -224,8 +224,8 @@ local CANVAS_TEMPLATES = {
 
 local CANVAS_TYPES = {custom = true, description = true, preview = true, section = true, toggles = true}
 
--- gap between one toggle's label and the next toggle on a shared row
 local TOGGLES_GAP = 24
+local TOGGLES_INDENT = 21
 
 local function needsCanvas(settings)
 	for _, info in next, settings do
@@ -679,6 +679,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				settingsByKey[entry.key] = setting
 
 				local checkbox = CreateFrame('CheckButton', nil, row, 'SettingsCheckboxTemplate')
+				checkbox:SetFrameLevel(row.Tooltip:GetFrameLevel() + 1)
 				checkbox:Init(setting:GetValue())
 				checkbox:RegisterCallback('OnValueChanged', function(_, value)
 					setting:SetValue(not not value)
@@ -690,9 +691,11 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 				if previous then
 					checkbox:SetPoint('LEFT', previous.Text, 'RIGHT', TOGGLES_GAP, 0)
-				else
+				elseif info.title then
 					checkbox:SetPoint('LEFT', row, 'CENTER',
 						CANVAS_CONTROL_ANCHORS.toggle.x + CANVAS_CONTROL_SHIFT, CANVAS_CONTROL_ANCHORS.toggle.y)
+				else
+					checkbox:SetPoint('LEFT', row, 'LEFT', TOGGLES_INDENT, CANVAS_CONTROL_ANCHORS.toggle.y)
 				end
 
 				defaults[#defaults + 1] = setting
