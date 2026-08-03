@@ -1,12 +1,9 @@
 local _, A = ...
 
--- weak keys so a frame we no longer own doesn't stay alive just because it is listed here
 local frames = setmetatable({}, { __mode = 'k' })
 local listening
 
 local function applyScale(frame)
-	-- GetPixelToUIUnitFactor is 768 / physical screen height, so a frame scaled to it and
-	-- detached from its parent's scale renders one ui unit per physical pixel
 	frame:SetIgnoreParentScale(true)
 	frame:SetScale(PixelUtil.GetPixelToUIUnitFactor())
 end
@@ -26,7 +23,6 @@ through an unscaled holder at zero offset if it has to line up with anything.
 --]]
 function A:SetPixelPerfect(frame)
 	if not listening then
-		-- only worth watching once something actually depends on the factor
 		listening = true
 		A:RegisterEvent('DISPLAY_SIZE_CHANGED', rescaleAll)
 		A:RegisterEvent('UI_SCALE_CHANGED', rescaleAll)

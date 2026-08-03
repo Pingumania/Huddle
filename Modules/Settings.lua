@@ -1,6 +1,5 @@
 local addonName, A = ...
 
--- the recurring quest icon, a pair of arrows in a circle; Blizzard draws it at 16
 local RELOAD_ICON = CreateAtlasMarkup('Recurringavailablequesticon', 16, 16)
 local RELOAD_NOTE = 'This only takes effect after a reload.'
 
@@ -14,7 +13,6 @@ StaticPopupDialogs[reloadPopup] = {
 	timeout = 0,
 	whileDead = true,
 	hideOnEscape = true,
-	-- deliberately does not reload, the player may still be part-way through the panel
 	OnAccept = function()
 		reloadAcknowledged = true
 	end,
@@ -56,7 +54,6 @@ do
 	function createCanvas(name)
 		local frame = CreateFrame('Frame')
 
-		-- replicate header from SettingsListTemplate
 		local header = CreateFrame('Frame', nil, frame)
 		header:SetPoint('TOPLEFT')
 		header:SetPoint('TOPRIGHT')
@@ -66,8 +63,6 @@ do
 		local title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
 		title:SetPoint('TOPLEFT', 7, -22)
 		title:SetJustifyH('LEFT')
-		-- sub-categories already sit under the addon in the settings tree, so only the root
-		-- canvas carries the addon's name
 		title:SetText(name or addonName)
 		header.Title = title
 
@@ -82,7 +77,6 @@ do
 		divider:SetPoint('TOP', 0, -50)
 		divider:SetAtlas('Options_HorizontalDivider', true)
 
-		-- exposed container the addon can use
 		local canvas = Mixin(CreateFrame('Frame', nil, frame), canvasMixin)
 		canvas:SetPoint('BOTTOMLEFT', 0, 5)
 		canvas:SetPoint('BOTTOMRIGHT', -12, 5)
@@ -206,8 +200,6 @@ local function shiftCanvasControl(row, info)
 		return
 	end
 
-	-- a custom row holding a slider lines up with the real slider rows rather than with the
-	-- dropdowns the custom anchor is measured for
 	if info.type == 'custom' and control.Slider then
 		anchor = CANVAS_CONTROL_ANCHORS.slider
 	end
@@ -302,6 +294,7 @@ local function createControlInitializer(setting, info, tooltip)
 
 	error('type is invalid')
 end
+
 local function createCanvasSection(parent, info, relayout)
 	local data = {name = info.title, expanded = not not info.expanded}
 	local initializer = Settings.CreateElementInitializer('SettingsExpandableSectionTemplate', data)
@@ -580,8 +573,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 			initCanvasRow(row, initializer)
 
-			-- the first checkbox lands where a lone toggle's would, and each one after it follows
-			-- the previous label, so the row reads as one continuous group however long the labels
 			row.huddleToggles = {}
 
 			local previous
@@ -720,8 +711,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	evaluate()
 end
 
--- sub-categories are kept in an array rather than keyed by name, so they appear in the order they
--- were registered instead of whatever order the hash happens to iterate in
 local function findSubSettings(children, name)
 	for _, info in ipairs(children) do
 		if info.name == name then
@@ -776,7 +765,6 @@ local function applyDependencies(settings, keys, initializers, links)
 			assert(settings[keys[link.key]].type == 'toggle', string.format("setting '%s' can't depend on a non-toggle setting", key))
 		end
 
-		-- the chain is walked on every evaluation, so a cycle would hang the client
 		local steps = 0
 		local ancestor = links[link.key]
 		while ancestor do
@@ -789,15 +777,10 @@ local function applyDependencies(settings, keys, initializers, links)
 	for key, link in next, links do
 		local initializer = initializers[key]
 
-		-- only the immediate parent is consulted natively, so walk the whole chain instead,
-		-- otherwise a setting nested below a disabled ancestor stays enabled
 		local predicate = function()
 			return isChainEnabled(links, initializers, key)
 		end
 
-		-- an indented row gets a parent initializer, which also registers the value-changed
-		-- callback for that parent. An unindented one deliberately has no parent, so nothing of
-		-- ours ends up being called from inside Blizzard's Init
 		local ancestor = link
 		if link.indent then
 			initializer:SetParentInitializer(initializers[link.key], predicate)
@@ -806,9 +789,6 @@ local function applyDependencies(settings, keys, initializers, links)
 			initializer:AddModifyPredicate(predicate)
 		end
 
-		-- watch every remaining gate in the chain, otherwise toggling one two links up leaves this
-		-- row looking enabled. Despite the name this registers against SettingsCallbackRegistry,
-		-- which settings trigger on their own variable just like cvars do
 		while ancestor do
 			local setting = initializers[ancestor.key]:GetSetting()
 			if setting then
@@ -847,7 +827,6 @@ local function registerSettings(savedvariable, settings)
 		applyDependencies(settings, keys, initializers, links)
 	end
 
-	-- sub-categories
 	if A.settingsChildren then
 		for _, info in ipairs(A.settingsChildren) do
 			if info.settings then
@@ -864,7 +843,6 @@ local function registerSettings(savedvariable, settings)
 				local frame, canvas = createCanvas(info.name)
 				Settings.RegisterCanvasLayoutSubcategory(category, frame, info.name)
 
-				-- delay callback until settings are shown
 				local shown
 				SettingsPanel:HookScript('OnShow', function()
 					if not shown then
@@ -1017,8 +995,6 @@ function A:RegisterSettings(savedvariable, settings)
 		self.settingsChildren = {}
 	end
 
-	-- deliberately not ContinueOnAddOnLoaded: going through our own event system keeps this
-	-- ordered against namespace:OnLoad, which would otherwise be a race between two event systems
 	local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
 	if isReady then
 		registerSettings(savedvariable, settings)
@@ -1084,7 +1060,6 @@ end
 Wrapper for `namespace:RegisterSlash(...)`, except the callback is provided and will open the settings panel for this addon.
 --]]
 function A:RegisterSettingsSlash(...)
-	-- gotta do this dumb shit because `..., callback` is not valid Lua
 	local data = {...}
 	table.insert(data, function()
 		A:OpenSettings()
@@ -1169,7 +1144,6 @@ function A:TriggerOptionCallback(key, value)
 end
 
 do
-	-- sliders aren't supported in menus, so we create our own custom element
 	local function resetSlider(frame)
 		frame.slider:UnregisterCallback('OnValueChanged', frame)
 		frame.slider:Release()
@@ -1344,7 +1318,6 @@ function A:CreateToggle(parent, label, getValue, setValue)
 	end, checkbox)
 
 	if label ~= '' then
-		-- same font object SettingsListElementTemplate gives its own row labels
 		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
 		checkbox.Text:SetPoint('RIGHT', checkbox, 'LEFT', -2, 0)
 		checkbox.Text:SetText(label)
@@ -1455,8 +1428,6 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	local LSM = LibStub('LibSharedMedia-3.0', true)
 	assert(LSM, 'LibSharedMedia-3.0 is required for CreateMediaDropdown')
 
-	-- rebuilt every time the menu opens, because addons that load after this one register their
-	-- own media, and settings panels are built as each addon loads
 	local function GetOptions()
 		local options = {}
 		for _, name in next, LSM:List(mediaType) do

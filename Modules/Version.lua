@@ -18,8 +18,6 @@ end
 Checks if the current client is running the "classic" version.
 --]]
 function A:IsClassic()
-	-- instead of using the floating constant for classic we'll just NOR the other two,
-	-- as they are static
 	return not A:IsRetail() and not A:IsClassicEra()
 end
 

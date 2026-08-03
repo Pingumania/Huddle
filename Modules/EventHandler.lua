@@ -17,7 +17,6 @@ local callbacks = {}
 
 local unitEventValidator = CreateFrame('Frame')
 local function IsUnitEventValid(event, unit)
-	-- C_EventUtils.IsEventValid doesn't cover unit events, so we'll have to do this the old fashioned way
 	local isValid = pcall(unitEventValidator.RegisterUnitEvent, unitEventValidator, event, unit)
 	if isValid then
 		unitEventValidator:UnregisterEvent(event)
@@ -34,7 +33,6 @@ local function IsUnitValid(unit)
 	end
 end
 
--- dispatch iterates a copy, since callbacks are free to register or unregister while they run
 local function CopyList(list)
 	local copy = {}
 	for index = 1, #list do
@@ -137,11 +135,8 @@ function EventMixin:TriggerEvent(event, ...)
 		for _, data in ipairs(CopyList(callbacks[event])) do
 			local successful, ret = pcall(data.callback, data.owner, ...)
 			if not successful then
-				-- reported rather than rethrown, so one bad handler cannot stop its siblings running
 				CallErrorHandler(ret)
 			elseif ret then
-				-- callbacks can unregister themselves by returning positively,
-				-- ret contains the boolean
 				EventMixin.UnregisterEvent(data.owner, event, data.callback)
 			end
 		end
@@ -152,7 +147,6 @@ eventHandler:SetScript('OnEvent', function(_, event, ...)
 	EventMixin:TriggerEvent(event, ...)
 end)
 
--- special handling for unit events
 local unitEventHandlers = {}
 local function getUnitEventHandler(unit)
 	if not unitEventHandlers[unit] then
@@ -264,7 +258,6 @@ function EventMixin:TriggerUnitEvent(event, unit, ...)
 			if not successful then
 				CallErrorHandler(ret)
 			elseif ret then
-				-- callbacks can unregister themselves by returning positively
 				EventMixin.UnregisterUnitEvent(data.owner, event, unit, data.callback)
 			end
 		end
@@ -330,7 +323,6 @@ A = setmetatable(A, {
 			--]]
 			EventMixin.RegisterEvent(t, key, value)
 		else
-			-- default table behaviour
 			rawset(t, key, value)
 		end
 	end,
@@ -348,11 +340,9 @@ A = setmetatable(A, {
 				EventMixin.TriggerEvent(t, key, ...)
 			end
 		else
-			-- default table behaviour
 			return rawget(t, key)
 		end
 	end,
 })
 
--- mixin to namespace
 Mixin(A, EventMixin)

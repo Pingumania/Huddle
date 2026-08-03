@@ -1,6 +1,5 @@
 local _, A = ...
 
--- hidden dummy frame we anchor stuff we want to hide to
 local hidden = CreateFrame('Frame')
 hidden:Hide()
 
@@ -10,7 +9,6 @@ local function resolve(object, ...)
 	end
 
 	if ... then
-		-- iterate through arguments, they're children referenced by key
 		for index = 1, select('#', ...) do
 			object = object and object[select(index, ...)]
 		end
@@ -46,7 +44,6 @@ function A:Hide(object, ...)
 	end
 end
 
--- weak keys, so parking a frame here doesn't keep it alive
 local parents = setmetatable({}, { __mode = 'k' })
 
 --[[ namespace:HideFrame(_object_[, _child_,...]) ![](https://img.shields.io/badge/function-blue)
@@ -64,7 +61,6 @@ function A:HideFrame(object, ...)
 	if not object then return end
 
 	if parents[object] == nil then
-		-- false rather than nil, so a parentless object isn't looked up again
 		parents[object] = object:GetParent() or false
 	end
 
