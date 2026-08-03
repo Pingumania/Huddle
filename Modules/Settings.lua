@@ -180,6 +180,7 @@ local CANVAS_PAD_TOP = 10
 local CANVAS_PAD_LEFT = 25
 local CANVAS_SPACING = 9
 
+local CANVAS_COLUMN_GAP = 20
 local CANVAS_SCROLL_INSET = -15
 local CANVAS_CONTROL_SHIFT = 40
 local CANVAS_LABEL_X = -85
@@ -417,27 +418,86 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		return not (row.huddleSection and not row.huddleSection.expanded)
 	end
 
+	local function collectBlocks(visible)
+		local blocks = {}
+		local index = 1
+
+		while index <= #visible do
+			local row = visible[index]
+			local block = {row, columns = row.huddleColumns}
+
+			index = index + 1
+			while index <= #visible and row.huddleExpandedState
+				and visible[index].huddleSection == row.huddleExpandedState do
+				block[#block + 1] = visible[index]
+				index = index + 1
+			end
+
+			blocks[#blocks + 1] = block
+		end
+
+		return blocks
+	end
+
+	local function placeBlock(block, x, y, columnWidth)
+		local height = 0
+
+		for _, row in ipairs(block) do
+			row:ClearAllPoints()
+			row:SetPoint('TOPLEFT', x, -(y + height))
+
+			if columnWidth then
+				row:SetWidth(columnWidth)
+			else
+				row:SetPoint('TOPRIGHT', 0, -(y + height))
+			end
+
+			height = height + row:GetHeight() + CANVAS_SPACING
+		end
+
+		return height - CANVAS_SPACING
+	end
+
 	function relayout()
 		local width = content:GetWidth() - CANVAS_PAD_LEFT
+		local columnWidth = (width - CANVAS_COLUMN_GAP) / 2
 
-		local offset = 0
+		local visible = {}
 		for _, row in ipairs(order) do
-			local visible = isRowVisible(row)
-			row:SetShown(visible)
+			local shown = isRowVisible(row)
+			row:SetShown(shown)
 
-			if visible then
+			if shown then
 				if row.huddleText and width > 0 then
 					row.huddleText:SetWidth(width)
 					row:SetHeight(row.huddleText:GetStringHeight() + CANVAS_SPACING)
 				end
 
-				row:ClearAllPoints()
-				row:SetPoint('TOPLEFT', CANVAS_PAD_LEFT, -offset)
-				row:SetPoint('TOPRIGHT', 0, -offset)
-				offset = offset + row:GetHeight() + CANVAS_SPACING
+				visible[#visible + 1] = row
 			end
 		end
 
+		local columnOffsets = {0, 0}
+		local column = 1
+
+		for _, block in ipairs(collectBlocks(visible)) do
+			if columnWidth > 0 and block.columns == 2 then
+				local x = CANVAS_PAD_LEFT + (column - 1) * (columnWidth + CANVAS_COLUMN_GAP)
+				local height = placeBlock(block, x, columnOffsets[column], columnWidth)
+
+				columnOffsets[column] = columnOffsets[column] + height + CANVAS_SPACING
+				column = column == 1 and 2 or 1
+			else
+				local y = math.max(columnOffsets[1], columnOffsets[2])
+				local height = placeBlock(block, CANVAS_PAD_LEFT, y)
+
+				columnOffsets[1] = y + height + CANVAS_SPACING
+				columnOffsets[2] = columnOffsets[1]
+				column = 1
+			end
+		end
+
+		local offset = math.max(columnOffsets[1], columnOffsets[2])
 		content:SetHeight(math.max(offset, 1))
 		scrollBar:SetShown(content:GetHeight() > scroll:GetHeight() + 1)
 	end
@@ -667,6 +727,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 		if row then
 			row.huddleSection = section
+			row.huddleColumns = info.columns
+			row.huddleExpandedState = sectionState
 			order[#order + 1] = row
 		end
 
