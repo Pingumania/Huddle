@@ -1,4 +1,4 @@
-local _, A = ...
+local _, ns = ...
 
 local frames = setmetatable({}, { __mode = 'k' })
 local listening
@@ -21,11 +21,11 @@ The factor depends on the physical resolution, so the frame is rescaled automati
 changes. Note this makes the frame's own anchor offsets resolve in its own scale, so anchor it
 through an unscaled holder at zero offset if it has to line up with anything.
 --]]
-function A:SetPixelPerfect(frame)
+function ns:SetPixelPerfect(frame)
 	if not listening then
 		listening = true
-		A:RegisterEvent('DISPLAY_SIZE_CHANGED', rescaleAll)
-		A:RegisterEvent('UI_SCALE_CHANGED', rescaleAll)
+		ns:RegisterEvent('DISPLAY_SIZE_CHANGED', rescaleAll)
+		ns:RegisterEvent('UI_SCALE_CHANGED', rescaleAll)
 	end
 
 	frames[frame] = true
@@ -35,7 +35,7 @@ end
 --[[ namespace:ClearPixelPerfect(_frame_) ![](https://img.shields.io/badge/function-blue)
 Reattaches `frame` to its parent's scale and stops tracking it.
 --]]
-function A:ClearPixelPerfect(frame)
+function ns:ClearPixelPerfect(frame)
 	frames[frame] = nil
 	frame:SetIgnoreParentScale(false)
 end
@@ -55,25 +55,25 @@ Usage:
 border:SetHeight(namespace:PixelSize(border, 1))
 ```
 --]]
-function A:PixelSize(region, pixels)
+function ns:PixelSize(region, pixels)
 	return (pixels or 1) * PixelUtil.GetPixelToUIUnitFactor() / region:GetEffectiveScale()
 end
 
 --[[ namespace:SetWidth(_region_, _width_[, _minPixels_]) ![](https://img.shields.io/badge/function-blue)
 --]]
-function A:SetWidth(region, ...)
+function ns:SetWidth(region, ...)
 	PixelUtil.SetWidth(region, ...)
 end
 
 --[[ namespace:SetHeight(_region_, _height_[, _minPixels_]) ![](https://img.shields.io/badge/function-blue)
 --]]
-function A:SetHeight(region, ...)
+function ns:SetHeight(region, ...)
 	PixelUtil.SetHeight(region, ...)
 end
 
 --[[ namespace:SetSize(_region_, _width_, _height_[, _minWidthPixels_, _minHeightPixels_]) ![](https://img.shields.io/badge/function-blue)
 --]]
-function A:SetSize(region, ...)
+function ns:SetSize(region, ...)
 	PixelUtil.SetSize(region, ...)
 end
 
@@ -81,7 +81,7 @@ end
 Snap sizes and offsets to whole pixels at the region's own scale, so nothing straddles a pixel
 boundary. These forward to `PixelUtil`, including its optional minimum pixel counts.
 --]]
-function A:SetPoint(region, ...)
+function ns:SetPoint(region, ...)
 	PixelUtil.SetPoint(region, ...)
 end
 
@@ -90,7 +90,7 @@ Stops the renderer nudging `texture` onto the pixel grid, which is what makes a 
 on one pixel or the next depending on where it sits. Same pair Blizzard's own border code applies
 in `NineSliceUtil.DisableSharpening`.
 --]]
-function A:DisableSharpening(texture)
+function ns:DisableSharpening(texture)
 	texture:SetSnapToPixelGrid(false)
 	texture:SetTexelSnappingBias(0)
 end
@@ -100,7 +100,7 @@ Puts `texture` back on the pixel grid, undoing `namespace:DisableSharpening`. Th
 engine default rather than anything the texture carried before, so only call this on textures the
 addon sharpened itself.
 --]]
-function A:EnableSharpening(texture)
+function ns:EnableSharpening(texture)
 	texture:SetSnapToPixelGrid(true)
 	texture:SetTexelSnappingBias(0.51)
 end

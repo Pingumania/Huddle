@@ -1,9 +1,9 @@
-local _, A = ...
+local _, ns = ...
 
 local localizations = {}
 local locale = GetLocale()
 
-A.L = setmetatable({}, {
+ns.L = setmetatable({}, {
 	__index = function(_, key)
 		local value = localizations[locale] and localizations[locale][key]
 		if value then

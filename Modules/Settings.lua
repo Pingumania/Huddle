@@ -1,4 +1,4 @@
-local addonName, A = ...
+local ADDON_NAME, ns = ...
 
 local STRINGS = {
 	enUS = {
@@ -19,7 +19,7 @@ local L = setmetatable({}, {
 local RELOAD_ICON = CreateAtlasMarkup('Recurringavailablequesticon', 16, 16)
 local RELOAD_NOTE = L.RELOAD_NOTE
 
-local reloadPopup = addonName .. '_HUDDLE_RELOAD_REQUIRED'
+local reloadPopup = ADDON_NAME .. '_HUDDLE_RELOAD_REQUIRED'
 local reloadRequired = {}
 local reloadAcknowledged
 
@@ -34,7 +34,7 @@ StaticPopupDialogs[reloadPopup] = {
 	end,
 }
 
-local defaultsPopup = addonName .. '_HUDDLE_APPLY_DEFAULTS'
+local defaultsPopup = ADDON_NAME .. '_HUDDLE_APPLY_DEFAULTS'
 
 StaticPopupDialogs[defaultsPopup] = {
 	text = L.DEFAULTS_CONFIRM,
@@ -49,7 +49,7 @@ StaticPopupDialogs[defaultsPopup] = {
 }
 
 local function onSettingChanged(setting, value)
-	A:TriggerOptionCallback(setting.variableKey, value)
+	ns:TriggerOptionCallback(setting.variableKey, value)
 
 	if reloadRequired[setting.variableKey] and not reloadAcknowledged then
 		StaticPopup_Show(reloadPopup)
@@ -79,7 +79,7 @@ do
 		local title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
 		title:SetPoint('TOPLEFT', 7, -22)
 		title:SetJustifyH('LEFT')
-		title:SetText(name or addonName)
+		title:SetText(name or ADDON_NAME)
 		header.Title = title
 
 		local defaults = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
@@ -132,13 +132,13 @@ local PREVIEW_HEIGHT = 195
 local settingsRegistry = {}
 
 local function createSetting(category, savedvariable, info)
-	A:ArgCheck(info.key, 3, 'string')
-	A:ArgCheck(info.title, 3, 'string')
-	A:ArgCheck(info.type, 3, 'string')
+	ns:ArgCheck(info.key, 3, 'string')
+	ns:ArgCheck(info.title, 3, 'string')
+	ns:ArgCheck(info.type, 3, 'string')
 	assert(info.default ~= nil, 'default must be set')
 
-	A.optionVariables = A.optionVariables or {}
-	A.optionVariables[info.key] = savedvariable
+	ns.optionVariables = ns.optionVariables or {}
+	ns.optionVariables[info.key] = savedvariable
 
 	local title = info.title
 	local tooltip = info.tooltip
@@ -257,22 +257,22 @@ local function createControlInitializer(setting, info, tooltip)
 	if info.type == 'toggle' then
 		return Settings.CreateCheckboxInitializer(setting, nil, tooltip)
 	elseif info.type == 'toggleWithButton' then
-		A:ArgCheck(info.buttonText, 3, 'string')
-		A:ArgCheck(info.onClick, 3, 'function')
+		ns:ArgCheck(info.buttonText, 3, 'string')
+		ns:ArgCheck(info.onClick, 3, 'function')
 
 		local clickRequiresSet = false
 		return CreateSettingsCheckboxWithButtonInitializer(setting, info.buttonText, info.onClick, nil,
 			clickRequiresSet, tooltip)
 	elseif info.type == 'slider' then
-		A:ArgCheck(info.minValue, 3, 'number')
-		A:ArgCheck(info.maxValue, 3, 'number')
+		ns:ArgCheck(info.minValue, 3, 'number')
+		ns:ArgCheck(info.maxValue, 3, 'number')
 
 		local options = Settings.CreateSliderOptions(info.minValue, info.maxValue, info.valueStep or 1)
 		options:SetLabelFormatter(SLIDER_VALUE_LABEL, resolveSliderFormatter(info.valueFormat))
 
 		return Settings.CreateSliderInitializer(setting, options, tooltip)
 	elseif info.type == 'menu' then
-		A:ArgCheck(info.options, 3, 'table')
+		ns:ArgCheck(info.options, 3, 'table')
 
 		local options = function()
 			local container = Settings.CreateControlTextContainer()
@@ -296,12 +296,12 @@ local function registerSetting(category, savedvariable, info)
 	local setting, _, tooltip = createSetting(category, savedvariable, info)
 
 	local initializer
-	if not (info.type == 'color' and A:IsClassicEra()) then
+	if not (info.type == 'color' and ns:IsClassicEra()) then
 		initializer = createControlInitializer(setting, info, tooltip)
 	end
 
 	setting:SetValueChangedCallback(onSettingChanged)
-	A:TriggerOptionCallback(info.key, setting:GetValue())
+	ns:TriggerOptionCallback(info.key, setting:GetValue())
 
 	return initializer, setting
 end
@@ -572,7 +572,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			evaluate()
 		end)
 
-		A:TriggerOptionCallback(key, setting:GetValue())
+		ns:TriggerOptionCallback(key, setting:GetValue())
 	end
 
 	local function addRow(info, section)
@@ -583,11 +583,11 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			row:SetHeight(templateHeight('SettingsListSectionHeaderTemplate'))
 			initCanvasRow(row, CreateSettingsListSectionHeaderInitializer(info.title, info.tooltip))
 		elseif info.type == 'description' then
-			A:ArgCheck(info.title, 3, 'string')
+			ns:ArgCheck(info.title, 3, 'string')
 
 			row = createCanvasDescription(content, info)
 		elseif info.type == 'preview' then
-			A:ArgCheck(info.createPreview, 3, 'function')
+			ns:ArgCheck(info.createPreview, 3, 'function')
 
 			row = createCanvasPreview(content, info)
 
@@ -595,7 +595,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				customDefaults[#customDefaults + 1] = info.onDefaults
 			end
 		elseif info.type == 'section' then
-			A:ArgCheck(info.title, 3, 'string')
+			ns:ArgCheck(info.title, 3, 'string')
 			assert(info.createContent or info.settings, 'a section needs either createContent or settings')
 
 			row, sectionState = createCanvasSection(content, info, onSectionToggled)
@@ -630,8 +630,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				customDefaults[#customDefaults + 1] = info.onDefaults
 			end
 		elseif info.type == 'custom' then
-			A:ArgCheck(info.title, 3, 'string')
-			A:ArgCheck(info.createControl, 3, 'function')
+			ns:ArgCheck(info.title, 3, 'string')
+			ns:ArgCheck(info.createControl, 3, 'function')
 
 			local link = resolveLink(info)
 			local initializer
@@ -664,7 +664,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end
 			controls[#controls + 1] = row
 		elseif info.type == 'toggles' then
-			A:ArgCheck(info.settings, 3, 'table')
+			ns:ArgCheck(info.settings, 3, 'table')
 
 			local link = resolveLink(info)
 			local initializer
@@ -719,7 +719,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end
 
 			controls[#controls + 1] = row
-		elseif info.type == 'color' and A:IsClassicEra() then
+		elseif info.type == 'color' and ns:IsClassicEra() then
 		else
 			local setting, _, tooltip = createSetting(category, savedvariable, info)
 			local link = resolveLink(info)
@@ -870,12 +870,12 @@ local function applyDependencies(settings, keys, initializers, links, settingsBy
 end
 
 local function whenLoaded(callback)
-	local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
+	local _, isReady = C_AddOns.IsAddOnLoaded(ADDON_NAME)
 	if isReady then
 		callback()
 	else
-		A:RegisterEvent('ADDON_LOADED', function(_, name)
-			if name == addonName then
+		ns:RegisterEvent('ADDON_LOADED', function(_, name)
+			if name == ADDON_NAME then
 				callback()
 				return true -- unregister
 			end
@@ -885,7 +885,7 @@ end
 
 local settingsCategoryID
 local function registerSettings(savedvariable, settings)
-	local categoryName = C_AddOns.GetAddOnMetadata(addonName, 'Title')
+	local categoryName = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'Title')
 
 	local category, layout, canvas
 	if needsCanvas(settings) then
@@ -910,8 +910,8 @@ local function registerSettings(savedvariable, settings)
 		applyDependencies(settings, keys, initializers, links, settingsByKey)
 	end
 
-	if A.settingsChildren then
-		for _, info in ipairs(A.settingsChildren) do
+	if ns.settingsChildren then
+		for _, info in ipairs(ns.settingsChildren) do
 			if info.settings then
 				if needsCanvas(info.settings) then
 					local childFrame, childCanvas = createCanvas(info.name)
@@ -951,143 +951,143 @@ Such a panel does not take part in the settings search.
 
 Usage:
 ```lua
-A:RegisterSettings('MyAddOnDB', {
-    {
-        key = 'myToggle',
-        type = 'toggle',
-        title = 'My Toggle',
-        tooltip = 'Longer description of the toggle in a tooltip',
-        default = false,
-    },
-    {
-        key = 'myToggleWithButton',
-        type = 'toggleWithButton', -- a checkbox with a button beside it, on one row
-        title = 'My Toggle',
-        default = false,
-        buttonText = 'Sample',
-        buttonWidth = 100, -- (optional) the template's own width is 200
-        onClick = function() end, -- the button stays clickable while the toggle is off
-    },
-    {
-        key = 'mySlider',
-        type = 'slider',
-        title = 'My Slider',
-        tooltip = 'Longer description of the slider in a tooltip',
-        default = 0.5,
-        minValue = 0.1,
-        maxValue = 1.0,
-        valueStep = 0.01, -- (optional) step value, defaults to 1
-        valueFormat = formatter, -- (optional) callback function or a string for string.format
-        requires = 'myToggle', -- (optional) dependency on another setting (must be a "toggle")
-    },
-    {
-        key = 'myMenu',
-        type = 'menu',
-        title = 'My Menu',
-        tooltip = 'Longer description of the menu in a tooltip',
-        default = 'key1',
-        options = {
-            {value = 'key1', label = 'First option'},
-            {value = 'key2', label = 'Second option'},
-            {value = 'key3', label = 'Third option'},
-        },
-        parent = 'mySlider', -- (optional) set another setting as its parent (indents this setting)
-        gatedBy = 'myToggle', -- (optional) like "requires", but without indenting this setting
-    },
-    {
-        key = 'myColor',
-        type = 'color',
-        title = 'My Color',
-        tooltip = 'Longer description of the color in a tooltip',
-        default = 'ffff00ff', -- "AARRGGBB" format
-        requiresReload = true, -- (optional) marks the row and warns once per session when changed
-    },
-    {
-        type = 'header',
-        title = 'A Section Header',
-        tooltip = 'Optional tooltip for the header', -- (optional)
-    },
-    {
-        type = 'description',
-        title = 'A paragraph of explanatory text, wrapped to the width of the panel.',
-    },
-    {
-        type = 'custom',
-        title = 'A Custom Row',
-        tooltip = 'Optional tooltip', -- (optional)
-        requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
-        onDefaults = function() end, -- (optional) the row owns its value, so it resets it itself
-        createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
-            return A:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
-        end,
-    },
-    {
-        -- several checkboxes sharing one row. The first sits exactly where a lone 'toggle' would,
-        -- each one after it follows the previous label. Every entry is a real setting with its own
-        -- key and default; the row's own requires/gatedBy gates all of them together
-        type = 'toggles',
-        title = 'A Shared Row', -- (optional) the row's label, on the left like any other row
-        tooltip = 'Optional tooltip', -- (optional)
-        requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
-        settings = {
-            {key = 'myFirstToggle', type = 'toggle', title = 'First', default = false},
-            {key = 'mySecondToggle', type = 'toggle', title = 'Second', default = false},
-        },
-    },
-    {
-        type = 'section',
-        title = 'A Collapsible Section',
-        tooltip = 'Optional tooltip, shown over the header bar', -- (optional)
-        expanded = false, -- (optional) defaults to false, so sections start collapsed
-        onDefaults = function() end, -- (optional) the section owns its values, so it resets them itself
-        createContent = function(section) -- draws its own content, which the section grows to fit
-            local content = CreateFrame('Frame', nil, section)
-            content:SetHeight(80) -- the height is read back to size the expanded section
-            return content
-        end,
-    },
-    {
-        type = 'section',
-        title = 'A Collapsible Group',
-        expanded = false,
-        -- instead of createContent, a section can group settings. They stay ordinary rows of this
-        -- panel, keeping their dependencies and defaults, and collapsing only hides them
-        settings = {
-            {key = 'myGroupedToggle', type = 'toggle', title = 'Grouped', default = false},
-        },
-    },
-    {
-        -- giving a section a key puts a toggle on the header bar itself, so the whole group reads
-        -- as one line while collapsed. It gates every setting inside it that does not already
-        -- depend on something more specific
-        type = 'section',
-        title = 'A Collapsible Group With A Toggle',
-        key = 'myGroupToggle',
-        default = false,
-        expanded = false,
-        columns = 2, -- (optional) pack with the next collapsed 2-column row, half width each
-        settings = {
-            {key = 'myGatedToggle', type = 'toggle', title = 'Gated', default = false},
-        },
-    },
-    {
-        type = 'preview',
-        title = 'PREVIEW', -- (optional) label drawn inside the box, defaults to PREVIEW
-        height = 195, -- (optional) row height, defaults to 195
-        onDefaults = function() end, -- (optional) the row owns its values, so it resets them itself
-        createPreview = function(panel) -- called once per physical row frame (rows get recycled)
-            local preview = CreateFrame('Frame', nil, panel)
-            preview:SetPoint('CENTER')
-            preview:SetSize(200, 100)
-            return preview
-        end,
-    },
+ns:RegisterSettings('MyAddOnDB', {
+	{
+		key = 'myToggle',
+		type = 'toggle',
+		title = 'My Toggle',
+		tooltip = 'Longer description of the toggle in a tooltip',
+		default = false,
+	},
+	{
+		key = 'myToggleWithButton',
+		type = 'toggleWithButton', -- a checkbox with a button beside it, on one row
+		title = 'My Toggle',
+		default = false,
+		buttonText = 'Sample',
+		buttonWidth = 100, -- (optional) the template's own width is 200
+		onClick = function() end, -- the button stays clickable while the toggle is off
+	},
+	{
+		key = 'mySlider',
+		type = 'slider',
+		title = 'My Slider',
+		tooltip = 'Longer description of the slider in a tooltip',
+		default = 0.5,
+		minValue = 0.1,
+		maxValue = 1.0,
+		valueStep = 0.01, -- (optional) step value, defaults to 1
+		valueFormat = formatter, -- (optional) callback function or a string for string.format
+		requires = 'myToggle', -- (optional) dependency on another setting (must be a "toggle")
+	},
+	{
+		key = 'myMenu',
+		type = 'menu',
+		title = 'My Menu',
+		tooltip = 'Longer description of the menu in a tooltip',
+		default = 'key1',
+		options = {
+			{value = 'key1', label = 'First option'},
+			{value = 'key2', label = 'Second option'},
+			{value = 'key3', label = 'Third option'},
+		},
+		parent = 'mySlider', -- (optional) set another setting as its parent (indents this setting)
+		gatedBy = 'myToggle', -- (optional) like "requires", but without indenting this setting
+	},
+	{
+		key = 'myColor',
+		type = 'color',
+		title = 'My Color',
+		tooltip = 'Longer description of the color in a tooltip',
+		default = 'ffff00ff', -- "AARRGGBB" format
+		requiresReload = true, -- (optional) marks the row and warns once per session when changed
+	},
+	{
+		type = 'header',
+		title = 'A Section Header',
+		tooltip = 'Optional tooltip for the header', -- (optional)
+	},
+	{
+		type = 'description',
+		title = 'A paragraph of explanatory text, wrapped to the width of the panel.',
+	},
+	{
+		type = 'custom',
+		title = 'A Custom Row',
+		tooltip = 'Optional tooltip', -- (optional)
+		requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+		onDefaults = function() end, -- (optional) the row owns its value, so it resets it itself
+		createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
+			return ns:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
+		end,
+	},
+	{
+		-- several checkboxes sharing one row. The first sits exactly where a lone 'toggle' would,
+		-- each one after it follows the previous label. Every entry is a real setting with its own
+		-- key and default; the row's own requires/gatedBy gates all of them together
+		type = 'toggles',
+		title = 'A Shared Row', -- (optional) the row's label, on the left like any other row
+		tooltip = 'Optional tooltip', -- (optional)
+		requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+		settings = {
+			{key = 'myFirstToggle', type = 'toggle', title = 'First', default = false},
+			{key = 'mySecondToggle', type = 'toggle', title = 'Second', default = false},
+		},
+	},
+	{
+		type = 'section',
+		title = 'A Collapsible Section',
+		tooltip = 'Optional tooltip, shown over the header bar', -- (optional)
+		expanded = false, -- (optional) defaults to false, so sections start collapsed
+		onDefaults = function() end, -- (optional) the section owns its values, so it resets them itself
+		createContent = function(section) -- draws its own content, which the section grows to fit
+			local content = CreateFrame('Frame', nil, section)
+			content:SetHeight(80) -- the height is read back to size the expanded section
+			return content
+		end,
+	},
+	{
+		type = 'section',
+		title = 'A Collapsible Group',
+		expanded = false,
+		-- instead of createContent, a section can group settings. They stay ordinary rows of this
+		-- panel, keeping their dependencies and defaults, and collapsing only hides them
+		settings = {
+			{key = 'myGroupedToggle', type = 'toggle', title = 'Grouped', default = false},
+		},
+	},
+	{
+		-- giving a section a key puts a toggle on the header bar itself, so the whole group reads
+		-- as one line while collapsed. It gates every setting inside it that does not already
+		-- depend on something more specific
+		type = 'section',
+		title = 'A Collapsible Group With A Toggle',
+		key = 'myGroupToggle',
+		default = false,
+		expanded = false,
+		columns = 2, -- (optional) pack with the next collapsed 2-column row, half width each
+		settings = {
+			{key = 'myGatedToggle', type = 'toggle', title = 'Gated', default = false},
+		},
+	},
+	{
+		type = 'preview',
+		title = 'PREVIEW', -- (optional) label drawn inside the box, defaults to PREVIEW
+		height = 195, -- (optional) row height, defaults to 195
+		onDefaults = function() end, -- (optional) the row owns its values, so it resets them itself
+		createPreview = function(panel) -- called once per physical row frame (rows get recycled)
+			local preview = CreateFrame('Frame', nil, panel)
+			preview:SetPoint('CENTER')
+			preview:SetSize(200, 100)
+			return preview
+		end,
+	},
 })
 ```
 --]]
-function A:RegisterSettings(savedvariable, settings)
-	A:ArgCheck(savedvariable, 1, 'string')
-	A:ArgCheck(settings, 2, 'table')
+function ns:RegisterSettings(savedvariable, settings)
+	ns:ArgCheck(savedvariable, 1, 'string')
+	ns:ArgCheck(settings, 2, 'table')
 
 	if not self.settingsChildren then
 		self.settingsChildren = {}
@@ -1104,9 +1104,9 @@ The savedvariables will be stored under the main savedvariables in a table entry
 
 The `settings` are identical to that of `namespace:RegisterSettings`.
 --]]
-function A:RegisterSubSettings(name, settings)
-	A:ArgCheck(name, 1, 'string')
-	A:ArgCheck(settings, 2, 'table')
+function ns:RegisterSubSettings(name, settings)
+	ns:ArgCheck(name, 1, 'string')
+	ns:ArgCheck(settings, 2, 'table')
 	assert(not not self.settingsChildren, "can't register sub-settings without root settings")
 	assert(not findSubSettings(self.settingsChildren, name), "can't register two sub-settings with the same name")
 	table.insert(self.settingsChildren, {
@@ -1123,9 +1123,9 @@ Registers a canvas sub-category. This does not handle savedvariables.
 Canvas frame has a custom method `SetDefaultsHandler` which takes a callback as arg1.
 This callback is triggered when the "Defaults" button is clicked and the player confirms.
 --]]
-function A:RegisterSubSettingsCanvas(name, callback)
-	A:ArgCheck(name, 1, 'string')
-	A:ArgCheck(callback, 2, 'function')
+function ns:RegisterSubSettingsCanvas(name, callback)
+	ns:ArgCheck(name, 1, 'string')
+	ns:ArgCheck(callback, 2, 'function')
 	assert(not not self.settingsChildren, "can't register sub-settings without root settings")
 	assert(not findSubSettings(self.settingsChildren, name), "can't register two sub-settings with the same name")
 	table.insert(self.settingsChildren, {
@@ -1137,10 +1137,10 @@ end
 --[[ namespace:OpenSettings() ![](https://img.shields.io/badge/function-blue)
 Opens the settings panel for this addon.
 --]]
-function A:OpenSettings()
+function ns:OpenSettings()
 	assert(not not settingsCategoryID, 'must register settings first')
 	if InCombatLockdown() then
-		A:Print(L.COMBAT_BLOCKED)
+		ns:Print(L.COMBAT_BLOCKED)
 	else
 		Settings.OpenToCategory(settingsCategoryID)
 	end
@@ -1149,21 +1149,21 @@ end
 --[[ namespace:RegisterSettingsSlash(_..._) ![](https://img.shields.io/badge/function-blue)
 Wrapper for `namespace:RegisterSlash(...)`, except the callback is provided and will open the settings panel for this addon.
 --]]
-function A:RegisterSettingsSlash(...)
+function ns:RegisterSettingsSlash(...)
 	local data = {...}
 	table.insert(data, function()
-		A:OpenSettings()
+		ns:OpenSettings()
 	end)
 
-	A:RegisterSlash(unpack(data))
+	ns:RegisterSlash(unpack(data))
 end
 
 --[[ namespace:GetOption(_key_) ![](https://img.shields.io/badge/function-blue)
 Returns the value for the given option `key`.
 --]]
-function A:GetOption(key)
-	A:ArgCheck(key, 1, 'string')
-	assert(A:AreOptionsLoaded(key), "options aren't loaded")
+function ns:GetOption(key)
+	ns:ArgCheck(key, 1, 'string')
+	assert(ns:AreOptionsLoaded(key), "options aren't loaded")
 	local savedvariable = self.optionVariables[key]
 	assert(_G[savedvariable][key] ~= nil, "key doesn't exist")
 	return _G[savedvariable][key]
@@ -1172,9 +1172,9 @@ end
 --[[ namespace:SetOption(_key_, _value_) ![](https://img.shields.io/badge/function-blue)
 Sets a new `value` to the given options `key`.
 --]]
-function A:SetOption(key, value)
-	A:ArgCheck(key, 1, 'string')
-	assert(A:AreOptionsLoaded(key), "options aren't loaded")
+function ns:SetOption(key, value)
+	ns:ArgCheck(key, 1, 'string')
+	assert(ns:AreOptionsLoaded(key), "options aren't loaded")
 	local savedvariable = self.optionVariables[key]
 	assert(_G[savedvariable][key] ~= nil, "key doesn't exist")
 
@@ -1183,7 +1183,7 @@ function A:SetOption(key, value)
 		setting:SetValue(value)
 	else
 		_G[savedvariable][key] = value
-		A:TriggerOptionCallback(key, value)
+		ns:TriggerOptionCallback(key, value)
 	end
 end
 
@@ -1191,7 +1191,7 @@ end
 Checks to see if the savedvariables has been loaded in the game.
 If `key` is given, checks specifically for the savedvariable backing that option key.
 --]]
-function A:AreOptionsLoaded(key)
+function ns:AreOptionsLoaded(key)
 	if not self.optionVariables then
 		return false
 	end
@@ -1207,9 +1207,9 @@ end
 --[[ namespace:RegisterOptionCallback(_key_, _callback_) ![](https://img.shields.io/badge/function-blue)
 Register a `callback` function with the option `key`.
 --]]
-function A:RegisterOptionCallback(key, callback)
-	A:ArgCheck(key, 1, 'string')
-	A:ArgCheck(callback, 2, 'function')
+function ns:RegisterOptionCallback(key, callback)
+	ns:ArgCheck(key, 1, 'string')
+	ns:ArgCheck(callback, 2, 'function')
 
 	if not self.settingsCallbacks then
 		self.settingsCallbacks = {}
@@ -1225,8 +1225,8 @@ end
 --[[ namespace:TriggerOptionCallback(_key_, _value_) ![](https://img.shields.io/badge/function-blue)
 Trigger all registered option callbacks for the given `key`, supplying the `value`.
 --]]
-function A:TriggerOptionCallback(key, value)
-	A:ArgCheck(key, 1, 'string')
+function ns:TriggerOptionCallback(key, value)
+	ns:ArgCheck(key, 1, 'string')
 
 	if self.settingsCallbacks and self.settingsCallbacks[key] then
 		for _, callback in next, self.settingsCallbacks[key] do
@@ -1272,24 +1272,24 @@ do
 		local r, g, b = ColorPickerFrame:GetColorRGB()
 		if #setting.default == 8 then
 			local a = ColorPickerFrame:GetColorAlpha()
-			A:SetOption(setting.key, CreateColor(r, g, b, a):GenerateHexColor())
+			ns:SetOption(setting.key, CreateColor(r, g, b, a):GenerateHexColor())
 		else
-			A:SetOption(setting.key, CreateColor(r, g, b):GenerateHexColorNoAlpha())
+			ns:SetOption(setting.key, CreateColor(r, g, b):GenerateHexColorNoAlpha())
 		end
 	end
 	local function colorPickerReset(setting, previousColor)
 		if #setting.default == 8 then
-			A:SetOption(setting.key, CreateColorFromHexString(previousColor):GenerateHexColor())
+			ns:SetOption(setting.key, CreateColorFromHexString(previousColor):GenerateHexColor())
 		else
-			A:SetOption(setting.key, CreateColorFromRGBHexString(previousColor):GenerateHexColorNoAlpha())
+			ns:SetOption(setting.key, CreateColorFromRGBHexString(previousColor):GenerateHexColorNoAlpha())
 		end
 	end
 
 	local function menuGetter(setting, value)
-		return A:GetOption(setting.key) == value
+		return ns:GetOption(setting.key) == value
 	end
 	local function menuSetter(setting, value)
-		A:SetOption(setting.key, value)
+		ns:SetOption(setting.key, value)
 	end
 
 	local function menuTooltip(button, element)
@@ -1307,36 +1307,36 @@ do
 			_G[savedvariable] = {}
 		end
 
-		A.optionVariables = A.optionVariables or {}
+		ns.optionVariables = ns.optionVariables or {}
 		for _, setting in next, settings do
 			if _G[savedvariable][setting.key] == nil then
 				_G[savedvariable][setting.key] = setting.default
 			end
-			A.optionVariables[setting.key] = savedvariable
+			ns.optionVariables[setting.key] = savedvariable
 		end
 
 		-- TODO: menus also has "new feature" flags/textures, see if we can hook into that
 
 		Menu.ModifyMenu('MENU_WORLD_MAP_TRACKING', function(_, root)
 			root:CreateDivider()
-			root:CreateTitle((addonName:gsub('(%l)(%u)', '%1 %2')) .. HEADER_COLON)
+			root:CreateTitle((ADDON_NAME:gsub('(%l)(%u)', '%1 %2')) .. HEADER_COLON)
 
 			for _, setting in next, settings do
 				local element
 				if setting.type == 'toggle' then
 					element = root:CreateCheckbox(setting.title, function()
-						return A:GetOption(setting.key)
+						return ns:GetOption(setting.key)
 					end, function()
-						A:SetOption(setting.key, not A:GetOption(setting.key))
+						ns:SetOption(setting.key, not ns:GetOption(setting.key))
 					end)
 				elseif setting.type == 'slider' then
 					element = createSlider(root, setting.title, function()
-						return A:GetOption(setting.key)
+						return ns:GetOption(setting.key)
 					end, function(_, value)
-						A:SetOption(setting.key, value)
+						ns:SetOption(setting.key, value)
 					end, setting.minValue, setting.maxValue, setting.valueStep or 1, resolveSliderFormatter(setting.valueFormat))
 				elseif setting.type == 'color' then
-					local value = A:GetOption(setting.key)
+					local value = ns:GetOption(setting.key)
 					local hasOpacity = #value == 8
 					local color = hasOpacity and CreateColorFromHexString(value) or CreateColorFromRGBHexString(value)
 					local r, g, b, a = color:GetRGBA()
@@ -1377,9 +1377,9 @@ do
 
 	The `settings` object is identical to the one for `namespace:RegisterSettings`.
 	--]]
-	function A:RegisterMapSettings(savedvariable, settings)
-		A:ArgCheck(savedvariable, 1, 'string')
-		A:ArgCheck(settings, 2, 'table')
+	function ns:RegisterMapSettings(savedvariable, settings)
+		ns:ArgCheck(savedvariable, 1, 'string')
+		ns:ArgCheck(settings, 2, 'table')
 
 		whenLoaded(function()
 			registerMapSettings(savedvariable, settings)
@@ -1393,10 +1393,10 @@ panel's own rows use) with an optional text label to its left, matching how the 
 read - pass an empty string for a row that carries its own label. `getValue`/`setValue` read/write
 the checked state.
 --]]
-function A:CreateToggle(parent, label, getValue, setValue)
-	A:ArgCheck(label, 2, 'string')
-	A:ArgCheck(getValue, 3, 'function')
-	A:ArgCheck(setValue, 4, 'function')
+function ns:CreateToggle(parent, label, getValue, setValue)
+	ns:ArgCheck(label, 2, 'string')
+	ns:ArgCheck(getValue, 3, 'function')
+	ns:ArgCheck(setValue, 4, 'function')
 
 	local checkbox = CreateFrame('CheckButton', nil, parent, 'SettingsCheckboxTemplate')
 	checkbox:Init(getValue())
@@ -1417,12 +1417,12 @@ end
 Creates a native slider with +/- steppers (Blizzard's own `MinimalSliderWithSteppersTemplate`).
 `getValue`/`setValue` read/write the numeric value.
 --]]
-function A:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setValue)
-	A:ArgCheck(minValue, 2, 'number')
-	A:ArgCheck(maxValue, 3, 'number')
-	A:ArgCheck(valueStep, 4, 'number')
-	A:ArgCheck(getValue, 5, 'function')
-	A:ArgCheck(setValue, 6, 'function')
+function ns:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setValue)
+	ns:ArgCheck(minValue, 2, 'number')
+	ns:ArgCheck(maxValue, 3, 'number')
+	ns:ArgCheck(valueStep, 4, 'number')
+	ns:ArgCheck(getValue, 5, 'function')
+	ns:ArgCheck(setValue, 6, 'function')
 
 	local slider = CreateFrame('Frame', nil, parent, 'MinimalSliderWithSteppersTemplate')
 	slider:Init(getValue(), minValue, maxValue, (maxValue - minValue) / valueStep, {
@@ -1444,13 +1444,13 @@ widget `Settings.CreateDropdown` rows use). `options` is an array of `{value = .
 for lists that can still grow after the dropdown is built.
 
 `initializeItem`, if given, is called as `initializeItem(button, option)` for each list item, to customize its
-appearance (e.g. font, an attached texture — see `namespace:CreateMediaDropdown`). It may optionally
+appearance (e.g. font, an attached texture - see `namespace:CreateMediaDropdown`). It may optionally
 return `width, height` to widen the row beyond its default text-driven size.
 --]]
-function A:CreateDropdown(parent, options, getValue, setValue, initializeItem)
+function ns:CreateDropdown(parent, options, getValue, setValue, initializeItem)
 	assert(type(options) == 'table' or type(options) == 'function', 'arg2 must be a table or a function')
-	A:ArgCheck(getValue, 3, 'function')
-	A:ArgCheck(setValue, 4, 'function')
+	ns:ArgCheck(getValue, 3, 'function')
+	ns:ArgCheck(setValue, 4, 'function')
 
 	local container = CreateFrame('Frame', nil, parent, 'SettingsDropdownWithButtonsTemplate')
 	container.Dropdown:SetWidth(220)
@@ -1490,25 +1490,25 @@ end
 
 --[[ namespace:CreateMediaDropdown(_parent_, _mediaType_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a `namespace:CreateDropdown` listing every [LibSharedMedia-3.0](https://www.curseforge.com/wow/addons/libsharedmedia-3-0)
-item of `mediaType` ('font', 'statusbar' or 'sound'), with each option previewed — rendered in its own font,
+item of `mediaType` ('font', 'statusbar' or 'sound'), with each option previewed - rendered in its own font,
 showing its own texture, or played when picked.
 
 `getValue`/`setValue` read/write the selected media name.
 
 Usage:
 ```lua
-local dropdown = A:CreateMediaDropdown(parent, 'font', function()
-	return A.Config.textFontFace
+local dropdown = ns:CreateMediaDropdown(parent, 'font', function()
+	return ns.Config.textFontFace
 end, function(name)
-	A.Config.textFontFace = name
+	ns.Config.textFontFace = name
 end)
 dropdown:SetPoint('TOPLEFT')
 ```
 --]]
-function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
-	A:ArgCheck(mediaType, 2, 'string')
-	A:ArgCheck(getValue, 3, 'function')
-	A:ArgCheck(setValue, 4, 'function')
+function ns:CreateMediaDropdown(parent, mediaType, getValue, setValue)
+	ns:ArgCheck(mediaType, 2, 'string')
+	ns:ArgCheck(getValue, 3, 'function')
+	ns:ArgCheck(setValue, 4, 'function')
 	assert(mediaType == 'font' or mediaType == 'statusbar' or mediaType == 'sound',
 		"mediaType must be 'font', 'statusbar' or 'sound'")
 
@@ -1548,7 +1548,7 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 		fontString:SetFontObject(fontObject)
 	end
 
-	local dropdown = A:CreateDropdown(parent, GetOptions, getValue, OnSelect, function(button, option)
+	local dropdown = ns:CreateDropdown(parent, GetOptions, getValue, OnSelect, function(button, option)
 		if mediaType == 'font' then
 			ApplyFontPreview(button.Text, option.value)
 		elseif mediaType == 'statusbar' then

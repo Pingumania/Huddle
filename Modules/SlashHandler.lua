@@ -1,4 +1,4 @@
-local addonName, A = ...
+local ADDON_NAME, ns = ...
 
 --[[ namespace:RegisterSlash(_command_[, _commandN,..._], _callback_) ![](https://img.shields.io/badge/function-blue)
 Registers chat slash `command`(s) with a `callback` function.
@@ -6,12 +6,12 @@ Registers chat slash `command`(s) with a `callback` function.
 Usage:
 ```lua
 namespace:RegisterSlash('/hello', '/hi', function(input)
-    print('Hi')
+	print('Hi')
 end)
 ```
 --]]
-function A:RegisterSlash(...)
-	local name = addonName .. 'Slash' .. math.random()
+function ns:RegisterSlash(...)
+	local name = ADDON_NAME .. 'Slash' .. math.random()
 	local failed
 
 	local numArgs = select('#', ...)

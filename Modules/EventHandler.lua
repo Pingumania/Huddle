@@ -1,4 +1,4 @@
-local addonName, A = ...
+local ADDON_NAME, ns = ...
 
 --[[ namespace.eventMixin ![](https://img.shields.io/badge/object-teal)
 A multi-purpose [event](https://warcraft.wiki.gg/wiki/Events)-[mixin](https://en.wikipedia.org/wiki/Mixin).
@@ -7,7 +7,7 @@ These methods are mixed into `namespace`, and thus are available directly, e.g:
 
 ```lua
 namespace:RegisterEvent('BAG_UPDATE', function(self, ...)
-    -- do something
+	-- do something
 end)
 ```
 --]]
@@ -49,7 +49,7 @@ If the callback returns positive it will be unregistered.
 --]]
 function EventMixin:RegisterEvent(event, callback)
 	callback = callback or self[event]
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	assert(type(callback) == 'function', 'arg2 must be a function')
 
 	if not callbacks[event] then
@@ -70,7 +70,7 @@ end
 Unregisters a [frame `event`](https://warcraft.wiki.gg/wiki/Events) from the `callback` function.
 --]]
 function EventMixin:UnregisterEvent(event, callback)
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	assert(type(callback) == 'function', 'arg2 must be a function')
 
 	if callbacks[event] then
@@ -114,7 +114,7 @@ end
 Checks if the [frame `event`](https://warcraft.wiki.gg/wiki/Events) is registered with the `callback` function.
 --]]
 function EventMixin:IsEventRegistered(event, callback)
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	assert(type(callback) == 'function', 'arg2 must be a function')
 
 	if callbacks[event] then
@@ -165,7 +165,7 @@ Registers a [`unit`](https://warcraft.wiki.gg/wiki/UnitId)-specific [frame `even
 If the callback returns positive it will be unregistered for that unit.
 --]]
 function EventMixin:RegisterUnitEvent(event, ...)
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	local callback = select(select('#', ...), ...)
 	assert(type(callback) == 'function', 'last argument must be a function')
 
@@ -200,7 +200,7 @@ end
 Unregisters a [`unit`](https://warcraft.wiki.gg/wiki/UnitId)-specific [frame `event`](https://warcraft.wiki.gg/wiki/Events) from the `callback` function.
 --]]
 function EventMixin:UnregisterUnitEvent(event, ...)
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	local callback = select(select('#', ...), ...)
 	assert(type(callback) == 'function', 'last argument must be a function')
 
@@ -228,7 +228,7 @@ end
 Checks if the [`unit`](https://warcraft.wiki.gg/wiki/UnitId)-specific [frame `event`](https://warcraft.wiki.gg/wiki/Events) is registered with the `callback` function.
 --]]
 function EventMixin:IsUnitEventRegistered(event, ...)
-	assert(A:IsEventValid(event), 'arg1 must be an event')
+	assert(ns:IsEventValid(event), 'arg1 must be an event')
 	local callback = select(select('#', ...), ...)
 	assert(type(callback) == 'function', 'last argument must be a function')
 
@@ -264,9 +264,9 @@ function EventMixin:TriggerUnitEvent(event, unit, ...)
 	end
 end
 
-A.EventMixin = EventMixin
+ns.EventMixin = EventMixin
 
-A = setmetatable(A, {
+ns = setmetatable(ns, {
 	__newindex = function(t, key, value)
 		if key == 'OnLoad' then
 			--[[ namespace:OnLoad() ![](https://img.shields.io/badge/function-blue)
@@ -275,12 +275,12 @@ A = setmetatable(A, {
 			Usage:
 			```lua
 			function namespace:OnLoad()
-			    -- I'm loaded!
+				-- I'm loaded!
 			end
 			```
 			--]]
-			A:RegisterEvent('ADDON_LOADED', function(self, name)
-				if name == addonName then
+			ns:RegisterEvent('ADDON_LOADED', function(self, name)
+				if name == ADDON_NAME then
 					local successful, ret = pcall(value, self)
 					if not successful then
 						error(ret)
@@ -295,29 +295,29 @@ A = setmetatable(A, {
 			Usage:
 			```lua
 			function namespace:OnLogin()
-			    -- player has logged in!
+				-- player has logged in!
 			end
 			```
 			--]]
-			A:RegisterEvent('PLAYER_LOGIN', function(self)
+			ns:RegisterEvent('PLAYER_LOGIN', function(self)
 				local successful, ret = pcall(value, self)
 				if not successful then
 					error(ret)
 				end
 				return true -- unregister event
 			end)
-		elseif A:IsEventValid(key) then
+		elseif ns:IsEventValid(key) then
 			--[[ namespace:_event_ ![](https://img.shields.io/badge/function-blue)
 			Registers a  to an anonymous function.
 
 			Usage:
 			```lua
 			function namespace:BAG_UPDATE(bagID)
-			    -- do something
+				-- do something
 			end
 			-- or
 			namespace.BAG_UPDATE = function(self, bagID)
-			    -- do something
+				-- do something
 			end
 			```
 			--]]
@@ -327,7 +327,7 @@ A = setmetatable(A, {
 		end
 	end,
 	__index = function(t, key)
-		if A:IsEventValid(key) then
+		if ns:IsEventValid(key) then
 			--[[ namespace:_event_([_..._]) ![](https://img.shields.io/badge/function-blue)
 			Manually trigger all registered anonymous `event` callbacks, with optional arguments.
 
@@ -345,4 +345,4 @@ A = setmetatable(A, {
 	end,
 })
 
-Mixin(A, EventMixin)
+Mixin(ns, EventMixin)

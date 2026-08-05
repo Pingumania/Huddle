@@ -1,4 +1,4 @@
-local _, A = ...
+local _, ns = ...
 
 local queue = {}
 local function iterate()
@@ -24,8 +24,8 @@ end
 local function defer(info)
 	table.insert(queue, info)
 
-	if not A:IsEventRegistered('PLAYER_REGEN_ENABLED', iterate) then
-		A:RegisterEvent('PLAYER_REGEN_ENABLED', iterate)
+	if not ns:IsEventRegistered('PLAYER_REGEN_ENABLED', iterate) then
+		ns:RegisterEvent('PLAYER_REGEN_ENABLED', iterate)
 	end
 end
 
@@ -35,7 +35,7 @@ Defers a function `callback` (with optional arguments) until after combat ends.
 Callback can be the global name of a function.
 Triggers immediately if player is not in combat.
 --]]
-function A:Defer(callback, ...)
+function ns:Defer(callback, ...)
 	if type(callback) == 'string' then
 		callback = _G[callback]
 	end
@@ -63,7 +63,7 @@ end
 Defers a `method` on `object` (with optional arguments) until after combat ends.
 Triggers immediately if player is not in combat.
 --]]
-function A:DeferMethod(object, method, ...)
+function ns:DeferMethod(object, method, ...)
 	assert(type(object) == 'table', 'arg1 must be a table')
 	assert(type(method) == 'string', 'arg2 must be a string')
 	assert(type(object[method]) == 'function', 'arg2 must be a function')

@@ -1,4 +1,4 @@
-local _, A = ...
+local _, ns = ...
 
 local hidden = CreateFrame('Frame')
 hidden:Hide()
@@ -21,7 +21,7 @@ end
 Forcefully hide an `object`, or its `child`.
 It will recurse down to the last child if provided.
 
-This is permanent — it also blocks the object being reparented and silences its events. Use
+This is permanent - it also blocks the object being reparented and silences its events. Use
 `namespace:HideFrame` for something that has to be shown again later.
 
 Usage:
@@ -31,7 +31,7 @@ namespace:Hide('MinimapCluster', 'InstanceDifficulty')
 namespace:Hide(someFrame, 'ResetButton')
 ```
 --]]
-function A:Hide(object, ...)
+function ns:Hide(object, ...)
 	object = resolve(object, ...)
 
 	if object then
@@ -56,7 +56,7 @@ Usage:
 namespace:HideFrame('BagsBar')
 ```
 --]]
-function A:HideFrame(object, ...)
+function ns:HideFrame(object, ...)
 	object = resolve(object, ...)
 	if not object then return end
 
@@ -70,7 +70,7 @@ end
 --[[ namespace:ShowFrame(_object_[, _child_,...]) ![](https://img.shields.io/badge/function-blue)
 Reparents an `object`, or its `child`, back to where `namespace:HideFrame` found it.
 --]]
-function A:ShowFrame(object, ...)
+function ns:ShowFrame(object, ...)
 	object = resolve(object, ...)
 
 	local parent = object and parents[object]
@@ -82,7 +82,7 @@ end
 --[[ namespace:SetFrameMoveable(_frame_) ![](https://img.shields.io/badge/function-blue)
 Makes `frame` moveable by click-and-drag, clamped to the screen.
 --]]
-function A:SetFrameMoveable(frame)
+function ns:SetFrameMoveable(frame)
 	if type(frame) == 'string' then
 		frame = _G[frame]
 	end
@@ -104,9 +104,9 @@ function A:SetFrameMoveable(frame)
 end
 
 --[[ namespace.Backdrop ![](https://img.shields.io/badge/object-teal)
-A generic tooltip-style backdrop table, for use with `frame:SetBackdrop(A.Backdrop)` (requires `BackdropTemplate`).
+A generic tooltip-style backdrop table, for use with `frame:SetBackdrop(ns.Backdrop)` (requires `BackdropTemplate`).
 --]]
-A.Backdrop = {
+ns.Backdrop = {
 	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
 	edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
 	tile = true,
@@ -121,11 +121,11 @@ Applies `namespace.Backdrop` to `frame`, mixing in `BackdropTemplateMixin` first
 
 Usage:
 ```lua
-A:CreateBackdrop(someFrame)
-A:CreateBackdrop(someFrame, { 0, 0, 0, 0.4 }, { 1, 1, 1, 0.6 })
+ns:CreateBackdrop(someFrame)
+ns:CreateBackdrop(someFrame, { 0, 0, 0, 0.4 }, { 1, 1, 1, 0.6 })
 ```
 --]]
-function A:CreateBackdrop(frame, bgColor, borderColor)
+function ns:CreateBackdrop(frame, bgColor, borderColor)
 	if type(frame) == 'string' then
 		frame = _G[frame]
 	end
@@ -136,7 +136,7 @@ function A:CreateBackdrop(frame, bgColor, borderColor)
 		Mixin(frame, BackdropTemplateMixin)
 	end
 
-	frame:SetBackdrop(A.Backdrop)
+	frame:SetBackdrop(ns.Backdrop)
 
 	bgColor = bgColor or { 0, 0, 0, 1 }
 	frame:SetBackdropColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4] or 1)
