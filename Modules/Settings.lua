@@ -853,6 +853,20 @@ local function applyDependencies(settings, keys, initializers, links, settingsBy
 	end
 end
 
+local function whenLoaded(callback)
+	local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
+	if isReady then
+		callback()
+	else
+		A:RegisterEvent('ADDON_LOADED', function(_, name)
+			if name == addonName then
+				callback()
+				return true -- unregister
+			end
+		end)
+	end
+end
+
 local settingsCategoryID
 local function registerSettings(savedvariable, settings)
 	local categoryName = C_AddOns.GetAddOnMetadata(addonName, 'Title')
@@ -1063,17 +1077,9 @@ function A:RegisterSettings(savedvariable, settings)
 		self.settingsChildren = {}
 	end
 
-	local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
-	if isReady then
+	whenLoaded(function()
 		registerSettings(savedvariable, settings)
-	else
-		A:RegisterEvent('ADDON_LOADED', function(_, name)
-			if name == addonName then
-				registerSettings(savedvariable, settings)
-				return true -- unregister
-			end
-		end)
-	end
+	end)
 end
 
 --[[ namespace:RegisterSubSettings(_name_, _settings_) ![](https://img.shields.io/badge/function-blue)
@@ -1359,17 +1365,9 @@ do
 		A:ArgCheck(savedvariable, 1, 'string')
 		A:ArgCheck(settings, 2, 'table')
 
-		local _, isReady = C_AddOns.IsAddOnLoaded(addonName)
-		if isReady then
+		whenLoaded(function()
 			registerMapSettings(savedvariable, settings)
-		else
-			A:RegisterEvent('ADDON_LOADED', function(_, name)
-				if name == addonName then
-					registerMapSettings(savedvariable, settings)
-					return true -- unregister
-				end
-			end)
-		end
+		end)
 	end
 end
 
