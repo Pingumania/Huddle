@@ -141,48 +141,6 @@ local function createSetting(category, savedvariable, info)
 	return setting, title, tooltip
 end
 
-local function registerSetting(category, savedvariable, info)
-	local setting, _, tooltip = createSetting(category, savedvariable, info)
-
-	local initializer
-	if info.type == 'toggle' then
-		initializer = Settings.CreateCheckbox(category, setting, tooltip)
-	elseif info.type == 'slider' then
-		A:ArgCheck(info.minValue, 3, 'number')
-		A:ArgCheck(info.maxValue, 3, 'number')
-
-		local options = Settings.CreateSliderOptions(info.minValue, info.maxValue, info.valueStep or 1)
-		options:SetLabelFormatter(SLIDER_VALUE_LABEL, resolveSliderFormatter(info.valueFormat))
-
-		initializer = Settings.CreateSlider(category, setting, options, tooltip)
-	elseif info.type == 'menu' then
-		A:ArgCheck(info.options, 3, 'table')
-		local options = function()
-			local container = Settings.CreateControlTextContainer()
-			for _, option in next, info.options do
-				container:Add(option.value, option.label)
-			end
-			return container:GetData()
-		end
-
-		initializer = Settings.CreateDropdown(category, setting, options, tooltip)
-	elseif info.type == 'color' then
-		assert(#info.default == 8, 'color default must be an 8-character AARRGGBB hex string')
-
-		if not A:IsClassicEra() then
-			initializer = Settings.CreateColorSwatch(category, setting, tooltip)
-		end
-	else
-		error('type is invalid') -- TODO: make this prettier
-		return
-	end
-
-	setting:SetValueChangedCallback(onSettingChanged)
-	A:TriggerOptionCallback(info.key, setting:GetValue())
-
-	return initializer
-end
-
 local CANVAS_PAD_TOP = 10
 local CANVAS_PAD_LEFT = 25
 local CANVAS_SPACING = 9
@@ -264,6 +222,21 @@ local function resolveLink(info)
 	end
 end
 
+local function isChainEnabled(links, settingsByKey, link)
+	while link do
+		if link.gated then
+			local setting = settingsByKey[link.key]
+			if not (setting and setting:GetValue()) then
+				return false
+			end
+		end
+
+		link = links[link.key]
+	end
+
+	return true
+end
+
 local function createControlInitializer(setting, info, tooltip)
 	if info.type == 'toggle' then
 		return Settings.CreateCheckboxInitializer(setting, nil, tooltip)
@@ -301,6 +274,20 @@ local function createControlInitializer(setting, info, tooltip)
 	end
 
 	error('type is invalid')
+end
+
+local function registerSetting(category, savedvariable, info)
+	local setting, _, tooltip = createSetting(category, savedvariable, info)
+
+	local initializer
+	if not (info.type == 'color' and A:IsClassicEra()) then
+		initializer = createControlInitializer(setting, info, tooltip)
+	end
+
+	setting:SetValueChangedCallback(onSettingChanged)
+	A:TriggerOptionCallback(info.key, setting:GetValue())
+
+	return initializer, setting
 end
 
 local function createCanvasSection(parent, info, relayout)
@@ -511,18 +498,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	end
 
 	local function isLinkEnabled(link)
-		while link do
-			if link.gated then
-				local setting = settingsByKey[link.key]
-				if not (setting and setting:GetValue()) then
-					return false
-				end
-			end
-
-			link = links[link.key]
-		end
-
-		return true
+		return isChainEnabled(links, settingsByKey, link)
 	end
 
 	local function evaluate()
@@ -540,6 +516,48 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 	local defaults = {}
 	local customDefaults = {}
+
+	local function applyLink(initializer, link)
+		if not link then
+			return
+		end
+
+		initializer:AddModifyPredicate(function()
+			return isLinkEnabled(link)
+		end)
+
+		if link.indent then
+			initializer:Indent()
+		end
+	end
+
+	local function createElementRow(info, link)
+		local initializer = Settings.CreateElementInitializer('SettingsListElementTemplate',
+			{name = info.title or '', tooltip = info.tooltip})
+		applyLink(initializer, link)
+
+		local row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
+		row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
+		row.cbrHandles = Settings.CreateCallbackHandleContainer()
+
+		return row, initializer
+	end
+
+	local function bindSetting(key, setting, checkbox)
+		defaults[#defaults + 1] = setting
+
+		setting:SetValueChangedCallback(function(changed, value)
+			onSettingChanged(changed, value)
+
+			if checkbox then
+				checkbox:SetValue(value)
+			end
+
+			evaluate()
+		end)
+
+		A:TriggerOptionCallback(key, setting:GetValue())
+	end
 
 	local function addRow(info, section)
 		local row, sectionState
@@ -589,15 +607,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 					setting:SetValue(not not value)
 				end, checkbox)
 
-				defaults[#defaults + 1] = setting
-
-				setting:SetValueChangedCallback(function(changed, value)
-					onSettingChanged(changed, value)
-					checkbox:SetValue(value)
-					evaluate()
-				end)
-
-				A:TriggerOptionCallback(info.key, setting:GetValue())
+				bindSetting(info.key, setting, checkbox)
 			end
 
 			if info.onDefaults then
@@ -608,23 +618,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			A:ArgCheck(info.createControl, 3, 'function')
 
 			local link = resolveLink(info)
-			local initializer = Settings.CreateElementInitializer('SettingsListElementTemplate',
-				{name = info.title, tooltip = info.tooltip})
-
-			if link then
-				initializer:AddModifyPredicate(function()
-					return isLinkEnabled(link)
-				end)
-
-				if link.indent then
-					initializer:Indent()
-				end
-			end
-
-			row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
-			row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
-
-			row.cbrHandles = Settings.CreateCallbackHandleContainer()
+			local initializer
+			row, initializer = createElementRow(info, link)
 
 			function row:EvaluateState()
 				local enabled = isLinkEnabled(link)
@@ -656,22 +651,8 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			A:ArgCheck(info.settings, 3, 'table')
 
 			local link = resolveLink(info)
-			local initializer = Settings.CreateElementInitializer('SettingsListElementTemplate',
-				{name = info.title or '', tooltip = info.tooltip})
-
-			if link then
-				initializer:AddModifyPredicate(function()
-					return isLinkEnabled(link)
-				end)
-
-				if link.indent then
-					initializer:Indent()
-				end
-			end
-
-			row = CreateFrame('Frame', nil, content, 'SettingsListElementTemplate')
-			row:SetHeight(templateHeight('SettingsCheckboxControlTemplate'))
-			row.cbrHandles = Settings.CreateCallbackHandleContainer()
+			local initializer
+			row, initializer = createElementRow(info, link)
 
 			initCanvasRow(row, initializer)
 
@@ -703,15 +684,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 					checkbox:SetPoint('LEFT', row, 'LEFT', TOGGLES_INDENT, CANVAS_CONTROL_ANCHORS.toggle.y)
 				end
 
-				defaults[#defaults + 1] = setting
-
-				setting:SetValueChangedCallback(function(changed, value)
-					onSettingChanged(changed, value)
-					checkbox:SetValue(value)
-					evaluate()
-				end)
-
-				A:TriggerOptionCallback(entry.key, setting:GetValue())
+				bindSetting(entry.key, setting, checkbox)
 
 				row.huddleToggles[#row.huddleToggles + 1] = checkbox
 				previous = checkbox
@@ -738,16 +711,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			settingsByKey[info.key] = setting
 
 			local initializer = createControlInitializer(setting, info, tooltip)
-
-			if link then
-				initializer:AddModifyPredicate(function()
-					return isLinkEnabled(link)
-				end)
-
-				if link.indent then
-					initializer:Indent()
-				end
-			end
+			applyLink(initializer, link)
 
 			row = CreateFrame('Frame', nil, content, CANVAS_TEMPLATES[info.type])
 			row:SetHeight(templateHeight(CANVAS_TEMPLATES[info.type]))
@@ -760,14 +724,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 			shiftCanvasControl(row, info)
 
-			defaults[#defaults + 1] = setting
-
-			setting:SetValueChangedCallback(function(changed, value)
-				onSettingChanged(changed, value)
-				evaluate()
-			end)
-
-			A:TriggerOptionCallback(info.key, setting:GetValue())
+			bindSetting(info.key, setting)
 		end
 
 		if row then
@@ -830,45 +787,30 @@ local function findSubSettings(children, name)
 	end
 end
 
-local function isChainEnabled(links, initializers, key)
-	local link = links[key]
-	while link do
-		if link.gated then
-			local setting = initializers[link.key]:GetSetting()
-			if not (setting and setting:GetValue()) then
-				return false
-			end
-		end
-		link = links[link.key]
-	end
-	return true
-end
-
 local function registerSettingsList(category, layout, savedvariable, settings)
 	local keys = {}
 	local initializers = {}
+	local settingsByKey = {}
 	local links = {}
-	for index, setting in next, settings do
-		if setting.type == 'header' then
-			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(setting.title, setting.tooltip))
+	for index, info in ipairs(settings) do
+		if info.type == 'header' then
+			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(info.title, info.tooltip))
 		else
-			local initializer = registerSetting(category, savedvariable, setting)
-			keys[setting.key] = index
-			initializers[setting.key] = initializer
-
-			if setting.requires then
-				links[setting.key] = {key = setting.requires, gated = true, indent = true}
-			elseif setting.gatedBy then
-				links[setting.key] = {key = setting.gatedBy, gated = true}
-			elseif setting.parent then
-				links[setting.key] = {key = setting.parent, indent = true}
+			local initializer, setting = registerSetting(category, savedvariable, info)
+			if initializer then
+				layout:AddInitializer(initializer)
 			end
+
+			keys[info.key] = index
+			initializers[info.key] = initializer
+			settingsByKey[info.key] = setting
+			links[info.key] = resolveLink(info)
 		end
 	end
-	return keys, initializers, links
+	return keys, initializers, links, settingsByKey
 end
 
-local function applyDependencies(settings, keys, initializers, links)
+local function applyDependencies(settings, keys, initializers, links, settingsByKey)
 	for key, link in next, links do
 		assert(not not keys[link.key], string.format("setting '%s' can't depend on invalid setting '%s'", key, link.key))
 
@@ -889,7 +831,7 @@ local function applyDependencies(settings, keys, initializers, links)
 		local initializer = initializers[key]
 
 		local predicate = function()
-			return isChainEnabled(links, initializers, key)
+			return isChainEnabled(links, settingsByKey, links[key])
 		end
 
 		local ancestor = link
@@ -901,7 +843,7 @@ local function applyDependencies(settings, keys, initializers, links)
 		end
 
 		while ancestor do
-			local setting = initializers[ancestor.key]:GetSetting()
+			local setting = settingsByKey[ancestor.key]
 			if setting then
 				initializer:AddEvaluateStateCVar(setting:GetVariable())
 			end
@@ -934,8 +876,8 @@ local function registerSettings(savedvariable, settings)
 	if canvas then
 		renderCanvasSettings(canvas, category, savedvariable, settings)
 	else
-		local keys, initializers, links = registerSettingsList(category, layout, savedvariable, settings)
-		applyDependencies(settings, keys, initializers, links)
+		local keys, initializers, links, settingsByKey = registerSettingsList(category, layout, savedvariable, settings)
+		applyDependencies(settings, keys, initializers, links, settingsByKey)
 	end
 
 	if A.settingsChildren then
@@ -947,8 +889,9 @@ local function registerSettings(savedvariable, settings)
 					renderCanvasSettings(childCanvas, child, savedvariable, info.settings)
 				else
 					local child, childLayout = Settings.RegisterVerticalLayoutSubcategory(category, info.name)
-					local childKeys, childInitializers, childLinks = registerSettingsList(child, childLayout, savedvariable, info.settings)
-					applyDependencies(info.settings, childKeys, childInitializers, childLinks)
+					local childKeys, childInitializers, childLinks, childSettings =
+						registerSettingsList(child, childLayout, savedvariable, info.settings)
+					applyDependencies(info.settings, childKeys, childInitializers, childLinks, childSettings)
 				end
 			elseif info.callback then
 				local frame, canvas = createCanvas(info.name)
