@@ -2,21 +2,22 @@ local _, A = ...
 
 local queue = {}
 local function iterate()
-	for _, info in next, queue do
+	local pending = queue
+	queue = {}
+
+	for _, info in ipairs(pending) do
+		local successful, ret
 		if info.callback then
-			local successful, ret = pcall(info.callback, unpack(info.args))
-			if not successful then
-				error(ret)
-			end
+			successful, ret = pcall(info.callback, SafeUnpack(info.args))
 		elseif info.object then
-			local successful, ret = pcall(info.object[info.method], info.object, unpack(info.args))
-			if not successful then
-				error(ret)
-			end
+			successful, ret = pcall(info.object[info.method], info.object, SafeUnpack(info.args))
+		end
+
+		if successful == false then
+			CallErrorHandler(ret)
 		end
 	end
 
-	table.wipe(queue)
 	return true -- unregister event
 end
 
@@ -48,7 +49,7 @@ function A:Defer(callback, ...)
 	if InCombatLockdown() then
 		defer({
 			callback = callback,
-			args = {...},
+			args = SafePack(...),
 		})
 	else
 		local successful, ret = pcall(callback, ...)
@@ -71,7 +72,7 @@ function A:DeferMethod(object, method, ...)
 		defer({
 			object = object,
 			method = method,
-			args = {...},
+			args = SafePack(...),
 		})
 	else
 		local successful, ret = pcall(object[method], object, ...)
