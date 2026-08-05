@@ -21,21 +21,20 @@ function A:RegisterSlash(...)
 	else
 		for index = 1, numArgs - 1 do
 			local slash = select(index, ...)
-			if type(slash) ~= 'string' then
+			if type(slash) ~= 'string' or not slash:match('^/%a+$') then
 				failed = true
 				break
-			elseif not slash:match('^/%a+$') then
-				failed = true
-				break
-			else
-				_G['SLASH_' .. name .. index] = slash
 			end
 		end
 	end
 
 	if failed then
 		error('Syntax: RegisterSlash("/slash1"[, "/slash2"[, ...]], callback)')
-	else
-		SlashCmdList[name] = callback
 	end
+
+	for index = 1, numArgs - 1 do
+		_G['SLASH_' .. name .. index] = select(index, ...)
+	end
+
+	SlashCmdList[name] = callback
 end
