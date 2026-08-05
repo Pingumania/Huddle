@@ -1569,6 +1569,12 @@ function A:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 		end
 	end)
 
+	LSM.RegisterCallback(dropdown, 'LibSharedMedia_Registered', function(_, registeredType)
+		if registeredType == mediaType then
+			dropdown:GenerateMenu()
+		end
+	end)
+
 	if mediaType == 'font' then
 		local function UpdateSelectedFontPreview()
 			ApplyFontPreview(dropdown.Dropdown.Text, getValue())
