@@ -1,14 +1,30 @@
 local addonName, A = ...
 
+local STRINGS = {
+	enUS = {
+		RELOAD_NOTE = 'This only takes effect after a reload.',
+		RELOAD_INSTRUCTION = 'Use /reload when you are done changing settings.',
+		DEFAULTS_CONFIRM = 'Reset the settings on this page to their defaults?',
+		COMBAT_BLOCKED = "Can't open settings this way in combat",
+	},
+}
+
+local L = setmetatable({}, {
+	__index = function(_, key)
+		local strings = STRINGS[GetLocale()]
+		return strings and strings[key] or STRINGS.enUS[key]
+	end,
+})
+
 local RELOAD_ICON = CreateAtlasMarkup('Recurringavailablequesticon', 16, 16)
-local RELOAD_NOTE = 'This only takes effect after a reload.'
+local RELOAD_NOTE = L.RELOAD_NOTE
 
 local reloadPopup = addonName .. '_HUDDLE_RELOAD_REQUIRED'
 local reloadRequired = {}
 local reloadAcknowledged
 
 StaticPopupDialogs[reloadPopup] = {
-	text = RELOAD_NOTE .. '|n|nUse /reload when you are done changing settings.',
+	text = RELOAD_NOTE .. '|n|n' .. L.RELOAD_INSTRUCTION,
 	button1 = OKAY,
 	timeout = 0,
 	whileDead = true,
@@ -21,7 +37,7 @@ StaticPopupDialogs[reloadPopup] = {
 local defaultsPopup = addonName .. '_HUDDLE_APPLY_DEFAULTS'
 
 StaticPopupDialogs[defaultsPopup] = {
-	text = 'Reset the settings on this page to their defaults?',
+	text = L.DEFAULTS_CONFIRM,
 	button1 = OKAY,
 	button2 = CANCEL,
 	timeout = 0,
@@ -1124,7 +1140,7 @@ Opens the settings panel for this addon.
 function A:OpenSettings()
 	assert(not not settingsCategoryID, 'must register settings first')
 	if InCombatLockdown() then
-		A:Print("Can't open settings this way in combat")
+		A:Print(L.COMBAT_BLOCKED)
 	else
 		Settings.OpenToCategory(settingsCategoryID)
 	end
