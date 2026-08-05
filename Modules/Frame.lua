@@ -130,6 +130,8 @@ function A:CreateBackdrop(frame, bgColor, borderColor)
 		frame = _G[frame]
 	end
 
+	assert(type(frame) == 'table', 'arg1 must be a table')
+
 	if not frame.SetBackdrop then
 		Mixin(frame, BackdropTemplateMixin)
 	end
