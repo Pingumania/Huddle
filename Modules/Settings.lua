@@ -1401,7 +1401,9 @@ it can be typed as well as dragged. Typed values are clamped to `minValue`/`maxV
 is not a number is discarded and the box reverts.
 --]]
 local SLIDER_INPUT_WIDTH = 50
-local SLIDER_INPUT_HEIGHT = 20
+local SLIDER_INPUT_HEIGHT = 21
+local SLIDER_INPUT_Y = 0.5
+local SLIDER_INPUT_TEXT_TOP = 1
 local SLIDER_INPUT_OFFSET = 25
 local SLIDER_INPUT_INSET = 5
 
@@ -1434,8 +1436,8 @@ function ns:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setVal
 
 	input:SetSize(SLIDER_INPUT_WIDTH, SLIDER_INPUT_HEIGHT)
 	input:SetJustifyH('CENTER')
-	input:SetTextInsets(0, SLIDER_INPUT_INSET, 0, 0)
-	input:SetPoint('LEFT', slider.Slider, 'RIGHT', SLIDER_INPUT_OFFSET, 0)
+	input:SetTextInsets(0, SLIDER_INPUT_INSET, SLIDER_INPUT_TEXT_TOP, 0)
+	input:SetPoint('LEFT', slider.Slider, 'RIGHT', SLIDER_INPUT_OFFSET, SLIDER_INPUT_Y)
 
 	slider:RegisterCallback('OnValueChanged', function(_, value)
 		current = value
