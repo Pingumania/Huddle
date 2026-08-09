@@ -70,28 +70,7 @@ do
 	function createCanvas(name)
 		local frame = CreateFrame('Frame')
 
-		local header = CreateFrame('Frame', nil, frame)
-		header:SetPoint('TOPLEFT')
-		header:SetPoint('TOPRIGHT')
-		header:SetHeight(50)
-		frame.Header = header
-
-		local title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
-		title:SetPoint('TOPLEFT', 7, -22)
-		title:SetJustifyH('LEFT')
-		title:SetText(name or ADDON_NAME)
-		header.Title = title
-
-		local defaults = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
-		defaults:SetPoint('TOPRIGHT', -36, -16)
-		defaults:SetSize(96, 22)
-		defaults:SetText(SETTINGS_DEFAULTS)
-		defaults:Hide()
-		header.DefaultsButton = defaults
-
-		local divider = header:CreateTexture(nil, 'ARTWORK')
-		divider:SetPoint('TOP', 0, -50)
-		divider:SetAtlas('Options_HorizontalDivider', true)
+		frame.Header = ns:CreateSettingsHeader(frame, name or ADDON_NAME)
 
 		local canvas = Mixin(CreateFrame('Frame', nil, frame), canvasMixin)
 		canvas:SetPoint('BOTTOMLEFT', 0, 5)
@@ -1416,7 +1395,16 @@ end
 --[[ namespace:CreateSlider(_parent_, _minValue_, _maxValue_, _valueStep_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a native slider with +/- steppers (Blizzard's own `MinimalSliderWithSteppersTemplate`).
 `getValue`/`setValue` read/write the numeric value.
+
+The value is shown in an editable box where the template's read-only right-hand label would sit, so
+it can be typed as well as dragged. Typed values are clamped to `minValue`/`maxValue`; anything that
+is not a number is discarded and the box reverts.
 --]]
+local SLIDER_INPUT_WIDTH = 50
+local SLIDER_INPUT_HEIGHT = 20
+local SLIDER_INPUT_OFFSET = 25
+local SLIDER_INPUT_INSET = 5
+
 function ns:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setValue)
 	ns:ArgCheck(minValue, 2, 'number')
 	ns:ArgCheck(maxValue, 3, 'number')
@@ -1425,10 +1413,33 @@ function ns:CreateSlider(parent, minValue, maxValue, valueStep, getValue, setVal
 	ns:ArgCheck(setValue, 6, 'function')
 
 	local slider = CreateFrame('Frame', nil, parent, 'MinimalSliderWithSteppersTemplate')
-	slider:Init(getValue(), minValue, maxValue, (maxValue - minValue) / valueStep, {
-		[SLIDER_VALUE_LABEL] = defaultSliderFormatter,
-	})
+	slider:Init(getValue(), minValue, maxValue, (maxValue - minValue) / valueStep)
+
+	local input
+	local current = getValue()
+
+	local function Commit(text)
+		local value = tonumber(text)
+
+		if value then
+			slider:SetValue(math.min(maxValue, math.max(minValue, value)))
+		end
+
+		input:Refresh()
+	end
+
+	input = ns:CreateEditBox(slider, function()
+		return tostring(current)
+	end, Commit)
+
+	input:SetSize(SLIDER_INPUT_WIDTH, SLIDER_INPUT_HEIGHT)
+	input:SetJustifyH('CENTER')
+	input:SetTextInsets(0, SLIDER_INPUT_INSET, 0, 0)
+	input:SetPoint('LEFT', slider.Slider, 'RIGHT', SLIDER_INPUT_OFFSET, 0)
+
 	slider:RegisterCallback('OnValueChanged', function(_, value)
+		current = value
+		input:Refresh()
 		setValue(value)
 	end, slider)
 
@@ -1585,3 +1596,321 @@ function ns:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 
 	return dropdown
 end
+
+--[[ namespace:CreateSettingsHeader(_parent_, _title_) ![](https://img.shields.io/badge/function-blue)
+Creates the content header the settings panel draws above a page - a `GameFontHighlightHuge` title,
+a Defaults button at the top right and an `Options_HorizontalDivider` along the bottom, at Blizzard's
+own offsets. Anchored to the top of `parent`.
+
+The header carries `Title` and `DefaultsButton`. The button starts hidden, since a page without a
+defaults handler has nothing to reset.
+
+Usage:
+```lua
+local header = namespace:CreateSettingsHeader(frame, 'ManiaUF')
+header.DefaultsButton:Show()
+```
+--]]
+local HEADER_HEIGHT = 50
+local HEADER_TITLE_X, HEADER_TITLE_Y = 7, -22
+local HEADER_BUTTON_X, HEADER_BUTTON_Y = -36, -16
+local HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT = 96, 22
+
+function ns:CreateSettingsHeader(parent, title)
+	local header = CreateFrame('Frame', nil, parent)
+	header:SetPoint('TOPLEFT')
+	header:SetPoint('TOPRIGHT')
+	header:SetHeight(HEADER_HEIGHT)
+
+	header.Title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightHuge')
+	header.Title:SetPoint('TOPLEFT', HEADER_TITLE_X, HEADER_TITLE_Y)
+	header.Title:SetJustifyH('LEFT')
+	header.Title:SetText(title)
+
+	header.DefaultsButton = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
+	header.DefaultsButton:SetPoint('TOPRIGHT', HEADER_BUTTON_X, HEADER_BUTTON_Y)
+	header.DefaultsButton:SetSize(HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT)
+	header.DefaultsButton:SetText(SETTINGS_DEFAULTS)
+	header.DefaultsButton:Hide()
+
+	local divider = header:CreateTexture(nil, 'ARTWORK')
+	divider:SetAtlas('Options_HorizontalDivider', TextureKitConstants.UseAtlasSize)
+	divider:SetPoint('BOTTOMLEFT')
+	divider:SetPoint('BOTTOMRIGHT')
+
+	return header
+end
+
+--[[ namespace:CreateCategoryButton(_parent_, _label_[, _onClick_]) ![](https://img.shields.io/badge/function-blue)
+Creates a row for a vertical category list, drawn the way the settings panel draws its own category
+list - the `Options_List_Active`/`Options_List_Hover` atlases behind a `GameFontHighlight`/`GameFontNormal`
+label.
+
+`onClick` is called with the button when it is clicked. The button carries `SetSelected(selected)`,
+which the caller uses to clear the previously selected row.
+
+Usage:
+```lua
+local button = namespace:CreateCategoryButton(list, 'Player', function(self)
+	ShowPage(self)
+end)
+button:SetPoint('TOPLEFT')
+```
+--]]
+local CATEGORY_BUTTON_WIDTH = 175
+local CATEGORY_BUTTON_HEIGHT = 20
+local CATEGORY_LABEL_INSET = 12
+
+function ns:CreateCategoryButton(parent, label, onClick)
+	ns:ArgCheck(label, 2, 'string')
+
+	local button = CreateFrame('Button', nil, parent)
+	button:SetSize(CATEGORY_BUTTON_WIDTH, CATEGORY_BUTTON_HEIGHT)
+
+	button.Texture = button:CreateTexture(nil, 'BACKGROUND')
+	button.Texture:SetPoint('CENTER')
+
+	button.Label = button:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
+	button.Label:SetPoint('LEFT', button, 'LEFT', CATEGORY_LABEL_INSET, 0)
+	button.Label:SetJustifyH('LEFT')
+	button.Label:SetText(label)
+
+	function button:UpdateState()
+		if self.selected then
+			self.Label:SetFontObject('GameFontHighlight')
+			self.Texture:SetAtlas('Options_List_Active', TextureKitConstants.UseAtlasSize)
+			self.Texture:Show()
+		elseif self.over then
+			self.Label:SetFontObject('GameFontNormal')
+			self.Texture:SetAtlas('Options_List_Hover', TextureKitConstants.UseAtlasSize)
+			self.Texture:Show()
+		else
+			self.Label:SetFontObject('GameFontNormal')
+			self.Texture:Hide()
+		end
+	end
+
+	function button:SetSelected(selected)
+		self.selected = selected
+		self:UpdateState()
+	end
+
+	button:SetScript('OnEnter', function(self)
+		self.over = true
+		self:UpdateState()
+	end)
+
+	button:SetScript('OnLeave', function(self)
+		self.over = false
+		self:UpdateState()
+	end)
+
+	if onClick then
+		button:SetScript('OnClick', onClick)
+	end
+
+	button:UpdateState()
+
+	return button
+end
+
+--[[ namespace:CreateEditBox(_parent_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
+Creates a single-line text field (Blizzard's own `InputBoxTemplate`). `getValue`/`setValue` read/write
+the string; `setValue` runs on enter, and escape restores the stored value. The box carries
+`Refresh()`, for pushing an externally changed value back into it.
+
+Usage:
+```lua
+local editBox = namespace:CreateEditBox(parent, function()
+	return ns.Config.format
+end, function(text)
+	ns.Config.format = text
+end)
+editBox:SetPoint('TOPLEFT')
+```
+--]]
+local EDITBOX_WIDTH = 250
+local EDITBOX_HEIGHT = 20
+
+function ns:CreateEditBox(parent, getValue, setValue)
+	ns:ArgCheck(getValue, 2, 'function')
+	ns:ArgCheck(setValue, 3, 'function')
+
+	local editBox = CreateFrame('EditBox', nil, parent, 'InputBoxTemplate')
+	editBox:SetSize(EDITBOX_WIDTH, EDITBOX_HEIGHT)
+	editBox:SetAutoFocus(false)
+	editBox:SetFontObject('ChatFontNormal')
+	editBox:SetText(getValue() or '')
+
+	function editBox:Refresh()
+		self:SetText(getValue() or '')
+		self:SetCursorPosition(0)
+	end
+
+	editBox:SetScript('OnEnterPressed', function(self)
+		setValue(self:GetText())
+		self:ClearFocus()
+	end)
+
+	editBox:SetScript('OnEscapePressed', function(self)
+		self:Refresh()
+		self:ClearFocus()
+	end)
+
+	editBox:SetCursorPosition(0)
+
+	return editBox
+end
+
+--[[ namespace:CreateTabSystem(_parent_, _labels_, _onSelect_[, _spacing_]) ![](https://img.shields.io/badge/function-blue)
+Creates a horizontal row of tabs using Blizzard's own `MinimalTabTemplate` - the `Options_Tab_*` art
+the settings window uses for its Game/AddOns tabs, which matches `namespace:CreateCategoryButton`.
+`labels` is an array of strings, one per tab. `onSelect` is called with the tab's index whenever a
+tab is chosen.
+
+The returned frame carries `SelectTab(index)` for selecting one from code, which also fires `onSelect`.
+
+Usage:
+```lua
+local tabs = namespace:CreateTabSystem(frame, {'General', 'Player'}, function(index)
+	ShowPage(index)
+end)
+tabs:SetPoint('TOPLEFT')
+tabs:SelectTab(1)
+```
+--]]
+local TAB_HEIGHT = 37
+local TAB_TEXT_PADDING = 40
+local TAB_SPACING = 2
+
+function ns:CreateTabSystem(parent, labels, onSelect, spacing)
+	assert(type(labels) == 'table', 'arg2 must be a table')
+	ns:ArgCheck(onSelect, 3, 'function')
+
+	local container = CreateFrame('Frame', nil, parent)
+	container:SetHeight(TAB_HEIGHT)
+
+	local tabs = {}
+	local width = 0
+	local previous, tab
+
+	spacing = spacing or TAB_SPACING
+
+	local function Select(index)
+		for position, other in ipairs(tabs) do
+			other:SetSelected(position == index)
+		end
+
+		onSelect(index)
+	end
+
+	for index, label in ipairs(labels) do
+		tab = CreateFrame('Button', nil, container, 'MinimalTabTemplate')
+		tab.Text:SetText(label)
+		tab:SetSize(tab.Text:GetStringWidth() + TAB_TEXT_PADDING, TAB_HEIGHT)
+		tab:OnSelected(false)
+
+		if previous then
+			tab:SetPoint('BOTTOMLEFT', previous, 'BOTTOMRIGHT', spacing, 0)
+			width = width + spacing
+		else
+			tab:SetPoint('BOTTOMLEFT', container, 'BOTTOMLEFT', 0, 0)
+		end
+
+		tab:SetScript('OnClick', function(self)
+			Select(index)
+		end)
+
+		width = width + tab:GetWidth()
+		tabs[index] = tab
+		previous = tab
+	end
+
+	container:SetWidth(width)
+
+	function container:SelectTab(index)
+		Select(index)
+	end
+
+	return container
+end
+
+--[[ namespace:CreateTabContainer(_parent_[, _height_]) ![](https://img.shields.io/badge/function-blue)
+Creates the bordered content frame the settings window draws behind its category list and settings
+list - the `Options_InnerFrame` atlas, which includes the vertical divider between the two columns.
+Attach `namespace:CreateTabSystem` tabs to its top edge and lay the list and content out inside it.
+
+`height` overrides the atlas' own height. The texture is drawn nine-sliced via
+`SetTextureSliceMargins`, so the corners and the top/bottom border art keep their proportions at any
+height and only the straight middle stretches. Blizzard's own margins are used when the atlas carries
+`sliceData`, otherwise `TAB_CONTAINER_MARGIN` is assumed.
+
+The *width* is deliberately not settable. The vertical divider sits in the slice's stretched middle,
+so widening or narrowing the frame would move and smear it away from the list column's edge. The
+settings panel is 920x724 with this anchored at `TOPLEFT (17, -64)`; matching those horizontal
+numbers is what makes the art line up.
+
+Usage:
+```lua
+local container = namespace:CreateTabContainer(frame, 454)
+container:SetPoint('TOPLEFT', 17, -64)
+```
+--]]
+local TAB_CONTAINER_ATLAS = 'Options_InnerFrame'
+local TAB_CONTAINER_MARGIN = 24
+
+function ns:CreateTabContainer(parent, height)
+	local container = CreateFrame('Frame', nil, parent)
+
+	local texture = container:CreateTexture(nil, 'OVERLAY', nil, 2)
+	texture:SetAtlas(TAB_CONTAINER_ATLAS, TextureKitConstants.UseAtlasSize)
+	texture:SetPoint('TOPLEFT')
+
+	local info = C_Texture.GetAtlasInfo(TAB_CONTAINER_ATLAS)
+	local slice = info and info.sliceData
+
+	if slice then
+		texture:SetTextureSliceMargins(slice.marginLeft, slice.marginTop, slice.marginRight,
+			slice.marginBottom)
+		texture:SetTextureSliceMode(slice.sliceMode)
+	else
+		texture:SetTextureSliceMargins(TAB_CONTAINER_MARGIN, TAB_CONTAINER_MARGIN,
+			TAB_CONTAINER_MARGIN, TAB_CONTAINER_MARGIN)
+	end
+
+	if height then
+		texture:SetHeight(height)
+	end
+
+	container.Frame = texture
+	container:SetSize(texture:GetWidth(), texture:GetHeight())
+
+	return container
+end
+
+--[[ namespace:CreateButton(_parent_, _text_, _onClick_) ![](https://img.shields.io/badge/function-blue)
+Creates a standard `UIPanelButtonTemplate` button. `onClick` is called with the button when clicked.
+
+Usage:
+```lua
+local button = namespace:CreateButton(parent, 'Reset', function()
+	ns:ResetThings()
+end)
+button:SetPoint('TOPLEFT')
+```
+--]]
+local BUTTON_WIDTH = 96
+local BUTTON_HEIGHT = 22
+
+function ns:CreateButton(parent, text, onClick)
+	ns:ArgCheck(text, 2, 'string')
+	ns:ArgCheck(onClick, 3, 'function')
+
+	local button = CreateFrame('Button', nil, parent, 'UIPanelButtonTemplate')
+	button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
+	button:SetText(text)
+	button:SetScript('OnClick', onClick)
+
+	return button
+end
+
