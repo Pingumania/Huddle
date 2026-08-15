@@ -2311,6 +2311,151 @@ function ns:CreateDescription(parent, width, text)
 	return container
 end
 
+--[[ namespace:CreateOrderedList(_parent_, _width_, _onMove_, _onRemove_) ![](https://img.shields.io/badge/function-blue)
+Creates a vertical list of rows the user can reorder and remove. Call `list:SetEntries(entries)` any
+time the underlying list changes; the list fully re-renders from what it is given rather than
+tracking its own state.
+
+Each entry is `{ key, label }`. List order is row order, top first. Every row carries up, down and
+(x) controls; up is disabled on the first row and down on the last.
+
+`onMove(key, delta)` fires with `-1` for up and `1` for down, and `onRemove(key)` fires on the (x)
+control. Neither callback is given the new list - the widget never owns the data, so change it and
+call `SetEntries` again.
+
+`list:SetEnabled(enabled)` greys the labels and disables every row control, for lists whose contents
+are read-only in the current context. The setting persists across `SetEntries`.
+
+Each row's controls sit at its left edge, in up/down/remove order, with the left-justified label
+following them.
+
+Usage:
+```lua
+local list = namespace:CreateOrderedList(frame, 300, function(key, delta)
+	MoveMember(key, delta)
+	list:SetEntries(GetMembers())
+end, function(key)
+	RemoveMember(key)
+	list:SetEntries(GetMembers())
+end)
+list:SetPoint('TOPLEFT')
+list:SetEntries(GetMembers())
+```
+--]]
+local ORDERED_LIST_ROW_HEIGHT = 24
+local ORDERED_LIST_ROW_GAP = 2
+local ORDERED_LIST_BUTTON_SIZE = 20
+local ORDERED_LIST_BUTTON_GAP = 4
+local ORDERED_LIST_LABEL_GAP = 8
+local ORDERED_LIST_MIN_HEIGHT = 1
+
+local function CreateOrderedListButton(row, icon, onClick)
+	local button = CreateFrame('Button', nil, row, 'UIPanelSquareButton')
+	ns:SetSize(button, ORDERED_LIST_BUTTON_SIZE, ORDERED_LIST_BUTTON_SIZE)
+	SquareButton_SetIcon(button, icon)
+
+	button:SetScript('OnClick', function()
+		onClick(row.key)
+	end)
+
+	return button
+end
+
+function ns:CreateOrderedList(parent, width, onMove, onRemove)
+	ns:ArgCheck(width, 2, 'number')
+	ns:ArgCheck(onMove, 3, 'function')
+	ns:ArgCheck(onRemove, 4, 'function')
+
+	local container = CreateFrame('Frame', nil, parent)
+	container:SetWidth(width)
+
+	local rowPool = {}
+
+	local function MoveUp(key)
+		onMove(key, -1)
+	end
+
+	local function MoveDown(key)
+		onMove(key, 1)
+	end
+
+	local function GetRow(index)
+		local row = rowPool[index]
+
+		if row then
+			return row
+		end
+
+		row = CreateFrame('Frame', nil, container)
+		ns:SetSize(row, width, ORDERED_LIST_ROW_HEIGHT)
+
+		row.Up = CreateOrderedListButton(row, 'UP', MoveUp)
+		ns:SetPoint(row.Up, 'LEFT', row, 'LEFT', 0, 0)
+
+		row.Down = CreateOrderedListButton(row, 'DOWN', MoveDown)
+		ns:SetPoint(row.Down, 'LEFT', row.Up, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
+
+		row.Remove = CreateOrderedListButton(row, 'DELETE', onRemove)
+		ns:SetPoint(row.Remove, 'LEFT', row.Down, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
+
+		row.Label = row:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
+		row.Label:SetJustifyH('LEFT')
+		row.Label:SetWordWrap(false)
+		ns:SetPoint(row.Label, 'LEFT', row.Remove, 'RIGHT', ORDERED_LIST_LABEL_GAP, 0)
+		ns:SetPoint(row.Label, 'RIGHT', row, 'RIGHT', 0, 0)
+
+		rowPool[index] = row
+
+		return row
+	end
+
+	local entries = {}
+	local enabled = true
+
+	local function Layout()
+		local count = #entries
+		local height = ORDERED_LIST_MIN_HEIGHT
+		local color = enabled and NORMAL_FONT_COLOR or GRAY_FONT_COLOR
+		local row
+
+		for index = 1, count do
+			row = GetRow(index)
+			row.key = entries[index].key
+			row.Label:SetText(entries[index].label)
+			row.Label:SetTextColor(color:GetRGB())
+			row:ClearAllPoints()
+			ns:SetPoint(row, 'TOPLEFT', container, 'TOPLEFT', 0,
+				-(index - 1) * (ORDERED_LIST_ROW_HEIGHT + ORDERED_LIST_ROW_GAP))
+			row.Up:SetEnabled(enabled and index > 1)
+			row.Down:SetEnabled(enabled and index < count)
+			row.Remove:SetEnabled(enabled)
+			row:Show()
+		end
+
+		for index = count + 1, #rowPool do
+			rowPool[index]:Hide()
+		end
+
+		if count > 0 then
+			height = count * ORDERED_LIST_ROW_HEIGHT + (count - 1) * ORDERED_LIST_ROW_GAP
+		end
+
+		container:SetHeight(height)
+	end
+
+	function container:SetEntries(newEntries)
+		entries = newEntries
+		Layout()
+	end
+
+	function container:SetEnabled(value)
+		enabled = value
+		Layout()
+	end
+
+	return container
+end
+
 --[[ namespace:CreateTabContainer(_parent_[, _height_]) ![](https://img.shields.io/badge/function-blue)
 Creates the bordered content frame the settings window draws behind its category list and settings
 list - the `Options_InnerFrame` atlas, which includes the vertical divider between the two columns.
