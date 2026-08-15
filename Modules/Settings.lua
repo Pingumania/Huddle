@@ -2272,6 +2272,45 @@ function ns:CreateEditableTabStrip(parent, width, onSelect, onCreate, onRename, 
 	return container
 end
 
+--[[ namespace:CreateDescription(_parent_, _width_, _text_) ![](https://img.shields.io/badge/function-blue)
+Creates a block of wrapping explanatory text for the top of a settings page, sized to `width` and
+setting its own height to fit however many lines that takes. Call `description:SetText(text)` to
+change it; the height is recomputed.
+
+Usage:
+```lua
+local description = namespace:CreateDescription(page, 640, 'Only one of these is shown at a time.')
+description:SetPoint('TOPLEFT')
+```
+--]]
+local DESCRIPTION_SPACING = 2
+
+function ns:CreateDescription(parent, width, text)
+	ns:ArgCheck(width, 2, 'number')
+	ns:ArgCheck(text, 3, 'string')
+
+	local container = CreateFrame('Frame', nil, parent)
+	container:SetWidth(width)
+
+	local fontString = container:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
+	ns:SetPoint(fontString, 'TOPLEFT', container, 'TOPLEFT', 0, 0)
+	ns:SetWidth(fontString, width)
+	fontString:SetJustifyH('LEFT')
+	fontString:SetJustifyV('TOP')
+	fontString:SetSpacing(DESCRIPTION_SPACING)
+	fontString:SetTextColor(GRAY_FONT_COLOR:GetRGB())
+	container.Text = fontString
+
+	function container:SetText(value)
+		fontString:SetText(value)
+		container:SetHeight(fontString:GetStringHeight())
+	end
+
+	container:SetText(text)
+
+	return container
+end
+
 --[[ namespace:CreateTabContainer(_parent_[, _height_]) ![](https://img.shields.io/badge/function-blue)
 Creates the bordered content frame the settings window draws behind its category list and settings
 list - the `Options_InnerFrame` atlas, which includes the vertical divider between the two columns.
