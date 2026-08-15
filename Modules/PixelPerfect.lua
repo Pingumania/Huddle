@@ -1,7 +1,9 @@
 local _, ns = ...
 
 local frames = setmetatable({}, { __mode = 'k' })
+local heights = setmetatable({}, { __mode = 'k' })
 local listening
+local sizing
 
 local function applyScale(frame)
 	frame:SetIgnoreParentScale(true)
@@ -11,6 +13,16 @@ end
 local function rescaleAll()
 	for frame in next, frames do
 		applyScale(frame)
+	end
+end
+
+local function applyHeight(region, pixels)
+	region:SetHeight(ns:PixelSize(region, pixels))
+end
+
+local function resizeAll()
+	for region, pixels in next, heights do
+		applyHeight(region, pixels)
 	end
 end
 
@@ -40,6 +52,40 @@ function ns:ClearPixelPerfect(frame)
 	frame:SetIgnoreParentScale(false)
 end
 
+--[[ namespace:SnapToPixelGrid(_frame_) ![](https://img.shields.io/badge/function-blue)
+Nudges `frame` so its bottom left corner lands on a whole physical pixel, by adjusting the offsets of
+its single anchor point.
+
+Sizes snapped with `namespace:SetSize` only stay crisp if the frame they sit in starts on the grid.
+A frame anchored `CENTER` or dropped by the user lands wherever it lands, and every child inherits
+that fraction, which is what makes a one pixel border look thinner on one edge than the other. Call
+it after the frame moves. Frames with more or less than one anchor point are left alone.
+
+Usage:
+```lua
+namespace:SnapToPixelGrid(frame)
+```
+--]]
+function ns:SnapToPixelGrid(frame)
+	if frame:GetNumPoints() ~= 1 then
+		return
+	end
+
+	local left, bottom = frame:GetRect()
+
+	if not left then
+		return
+	end
+
+	local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
+	local unit = PixelUtil.GetPixelToUIUnitFactor() / frame:GetEffectiveScale()
+	local pixelX, pixelY = left / unit, bottom / unit
+
+	frame:SetPoint(point, relativeTo, relativePoint,
+		x + (math.floor(pixelX + 0.5) - pixelX) * unit,
+		y + (math.floor(pixelY + 0.5) - pixelY) * unit)
+end
+
 --[[ namespace:PixelSize(_region_[, _pixels_]) ![](https://img.shields.io/badge/function-blue)
 Returns the size in ui units that renders as exactly `pixels` physical pixels at `region`'s
 current effective scale, defaulting to one pixel.
@@ -57,6 +103,34 @@ border:SetHeight(namespace:PixelSize(border, 1))
 --]]
 function ns:PixelSize(region, pixels)
 	return (pixels or 1) * PixelUtil.GetPixelToUIUnitFactor() / region:GetEffectiveScale()
+end
+
+--[[ namespace:SetPixelHeight(_region_[, _pixels_]) ![](https://img.shields.io/badge/function-blue)
+Sets `region` to exactly `pixels` physical pixels tall, defaulting to one, and keeps it there when
+the physical resolution or ui scale changes.
+
+Use it for hairlines - dividers, borders, underlines - where `namespace:SetHeight` rounds to one or
+two pixels depending on the scale. Sharpening is turned off for textures, so a thin line is not
+nudged onto the neighbouring row.
+
+Usage:
+```lua
+namespace:SetPixelHeight(divider)
+```
+--]]
+function ns:SetPixelHeight(region, pixels)
+	if not sizing then
+		sizing = true
+		ns:RegisterEvent('DISPLAY_SIZE_CHANGED', resizeAll)
+		ns:RegisterEvent('UI_SCALE_CHANGED', resizeAll)
+	end
+
+	if region.SetSnapToPixelGrid then
+		ns:DisableSharpening(region)
+	end
+
+	heights[region] = pixels or 1
+	applyHeight(region, heights[region])
 end
 
 --[[ namespace:SetWidth(_region_, _width_[, _minPixels_]) ![](https://img.shields.io/badge/function-blue)

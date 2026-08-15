@@ -99,6 +99,7 @@ function ns:SetFrameMoveable(frame)
 	end)
 	frame:SetScript('OnMouseUp', function(self)
 		self:StopMovingOrSizing()
+		ns:SnapToPixelGrid(self)
 	end)
 	frame:SetClampedToScreen(true)
 end
