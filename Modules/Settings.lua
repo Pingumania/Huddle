@@ -1371,7 +1371,13 @@ Creates a native checkbox (Blizzard's own `SettingsCheckboxTemplate`, the same w
 panel's own rows use) with an optional text label to its left, matching how the panel's own rows
 read - pass an empty string for a row that carries its own label. `getValue`/`setValue` read/write
 the checked state.
+
+The template anchors its hover highlight to the checkbox's grandparent, which is the settings list's
+own row. Here that is whatever frame the caller happens to nest the checkbox in, so the highlight is
+re-anchored to the checkbox and its label.
 --]]
+local TOGGLE_HOVER_INSET = 4
+local TOGGLE_LABEL_GAP = 2
 function ns:CreateToggle(parent, label, getValue, setValue)
 	ns:ArgCheck(label, 2, 'string')
 	ns:ArgCheck(getValue, 3, 'function')
@@ -1385,8 +1391,21 @@ function ns:CreateToggle(parent, label, getValue, setValue)
 
 	if label ~= '' then
 		checkbox.Text = checkbox:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
-		checkbox.Text:SetPoint('RIGHT', checkbox, 'LEFT', -2, 0)
+		checkbox.Text:SetPoint('RIGHT', checkbox, 'LEFT', -TOGGLE_LABEL_GAP, 0)
 		checkbox.Text:SetText(label)
+	end
+
+	if checkbox.HoverBackground then
+		checkbox.HoverBackground:ClearAllPoints()
+		ns:SetPoint(checkbox.HoverBackground, 'TOPRIGHT', checkbox, 'TOPRIGHT', TOGGLE_HOVER_INSET, 0)
+
+		if checkbox.Text then
+			ns:SetPoint(checkbox.HoverBackground, 'BOTTOMLEFT', checkbox.Text, 'LEFT',
+				-TOGGLE_HOVER_INSET, -checkbox:GetHeight() / 2)
+		else
+			ns:SetPoint(checkbox.HoverBackground, 'BOTTOMLEFT', checkbox, 'BOTTOMLEFT',
+				-TOGGLE_HOVER_INSET, 0)
+		end
 	end
 
 	return checkbox
@@ -1643,6 +1662,103 @@ function ns:CreateSettingsHeader(parent, title)
 	return header
 end
 
+local PANEL_ART_PATH = 'Interface/AddOns/' .. ADDON_NAME .. '/Libs/Huddle/'
+local PANEL_ART_FILE = PANEL_ART_PATH .. 'chatbubble-no-background.blp'
+local PANEL_ART_FILE_VERTICAL = PANEL_ART_PATH .. 'chatbubblevertical-no-background.blp'
+
+local function SetupPanelPieceVisuals(container, piece, setup, pieceLayout)
+	if pieceLayout.file then
+		piece:SetTexture(pieceLayout.file)
+		piece:SetTexCoord(pieceLayout.left, pieceLayout.right, pieceLayout.top, pieceLayout.bottom)
+		ns:SetSize(piece, pieceLayout.width, pieceLayout.height)
+	else
+		piece:SetColorTexture(1, 1, 1, 1)
+	end
+
+	piece:SetHorizTile(false)
+	piece:SetVertTile(false)
+end
+
+local PANEL_LAYOUT = {
+	setupPieceVisualsFunction = SetupPanelPieceVisuals,
+	TopLeftCorner = { file = PANEL_ART_FILE, width = 16, height = 16, left = 1 / 128, right = 33 / 128, top = 203 / 256, bottom = 235 / 256 },
+	TopRightCorner = { file = PANEL_ART_FILE, width = 16, height = 16, left = 35 / 128, right = 67 / 128, top = 135 / 256, bottom = 167 / 256 },
+	BottomLeftCorner = { file = PANEL_ART_FILE, width = 16, height = 15, left = 1 / 128, right = 33 / 128, top = 135 / 256, bottom = 165 / 256 },
+	BottomRightCorner = { file = PANEL_ART_FILE, width = 16, height = 15, left = 1 / 128, right = 33 / 128, top = 169 / 256, bottom = 199 / 256 },
+	TopEdge = { file = PANEL_ART_FILE, width = 16, height = 16, left = 0 / 128, right = 32 / 128, top = 35 / 256, bottom = 67 / 256 },
+	BottomEdge = { file = PANEL_ART_FILE, width = 16, height = 15, left = 0 / 128, right = 32 / 128, top = 1 / 256, bottom = 31 / 256 },
+	LeftEdge = { file = PANEL_ART_FILE_VERTICAL, width = 16, height = 16, left = 1 / 128, right = 33 / 128, top = 0, bottom = 1 },
+	RightEdge = { file = PANEL_ART_FILE_VERTICAL, width = 16, height = 16, left = 35 / 128, right = 67 / 128, top = 0, bottom = 1 },
+	Center = { layer = 'BACKGROUND', x = -12, y = 12, x1 = 12, y1 = -11 },
+}
+
+--[[ namespace:CreateSectionHeader(_parent_, _title_) ![](https://img.shields.io/badge/function-blue)
+Creates a section header for use inside a settings page - a `GameFontHighlightLarge` caption with an
+`Options_HorizontalDivider` along the bottom, one step down from the page title drawn by
+`namespace:CreateSettingsHeader`. The caller anchors it.
+
+The header carries `Title` and `Divider`. The caption is centred vertically, so controls belonging to
+the section can be anchored to the header's `RIGHT` and line up with it.
+
+Usage:
+```lua
+local section = namespace:CreateSectionHeader(page, 'Applies to')
+section:SetPoint('TOPLEFT')
+section:SetPoint('TOPRIGHT')
+```
+--]]
+local SECTION_HEADER_HEIGHT = 32
+local SECTION_TITLE_INSET = 12
+
+function ns:CreateSectionHeader(parent, title)
+	ns:ArgCheck(title, 2, 'string')
+
+	local header = CreateFrame('Frame', nil, parent)
+	ns:SetHeight(header, SECTION_HEADER_HEIGHT)
+
+	header.Title = header:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightLarge')
+	ns:SetPoint(header.Title, 'LEFT', header, 'LEFT', SECTION_TITLE_INSET, 0)
+	header.Title:SetJustifyH('LEFT')
+	header.Title:SetText(title)
+
+	header.Divider = header:CreateTexture(nil, 'ARTWORK')
+	header.Divider:SetAtlas('Options_HorizontalDivider')
+	ns:SetPoint(header.Divider, 'BOTTOMLEFT', header, 'BOTTOMLEFT', 0, 0)
+	ns:SetPoint(header.Divider, 'BOTTOMRIGHT', header, 'BOTTOMRIGHT', 0, 0)
+	ns:SetPixelHeight(header.Divider)
+
+	return header
+end
+
+--[[ namespace:CreateInset(_parent_) ![](https://img.shields.io/badge/function-blue)
+Creates a box for grouping controls inside a settings page, drawn with the same rounded nine-slice
+border as the tab strip's pills so the two read as one family. The caller anchors and sizes it.
+
+Mixes in `NineSlicePanelMixin`, so `SetBorderColor` and `SetCenterColor` retint it away from the
+muted default. The frame level is left at the parent's, so rows anchored over it draw on top.
+
+Usage:
+```lua
+local inset = namespace:CreateInset(page)
+inset:SetPoint('TOPLEFT')
+inset:SetPoint('BOTTOMRIGHT')
+```
+--]]
+local INSET_BORDER = { 0.5, 0.5, 0.55, 0.8 }
+local INSET_CENTER = { 0, 0, 0, 0.35 }
+
+function ns:CreateInset(parent)
+	local inset = CreateFrame('Frame', nil, parent)
+	inset:SetFrameLevel(parent:GetFrameLevel())
+
+	Mixin(inset, NineSlicePanelMixin)
+	NineSliceUtil.ApplyLayout(inset, PANEL_LAYOUT)
+	inset:SetBorderColor(INSET_BORDER[1], INSET_BORDER[2], INSET_BORDER[3], INSET_BORDER[4])
+	inset:SetCenterColor(INSET_CENTER[1], INSET_CENTER[2], INSET_CENTER[3], INSET_CENTER[4])
+
+	return inset
+end
+
 --[[ namespace:CreateCategoryButton(_parent_, _label_[, _onClick_]) ![](https://img.shields.io/badge/function-blue)
 Creates a row for a vertical category list, drawn the way the settings panel draws its own category
 list - the `Options_List_Active`/`Options_List_Hover` atlases behind a `GameFontHighlight`/`GameFontNormal`
@@ -1660,31 +1776,35 @@ button:SetPoint('TOPLEFT')
 ```
 --]]
 local CATEGORY_BUTTON_WIDTH = 175
-local CATEGORY_BUTTON_HEIGHT = 20
+local CATEGORY_BUTTON_HEIGHT = 21
 local CATEGORY_LABEL_INSET = 12
+local CATEGORY_ART_BLEED = 6
 
 function ns:CreateCategoryButton(parent, label, onClick)
 	ns:ArgCheck(label, 2, 'string')
 
 	local button = CreateFrame('Button', nil, parent)
-	button:SetSize(CATEGORY_BUTTON_WIDTH, CATEGORY_BUTTON_HEIGHT)
+	ns:SetSize(button, CATEGORY_BUTTON_WIDTH, CATEGORY_BUTTON_HEIGHT)
 
 	button.Texture = button:CreateTexture(nil, 'BACKGROUND')
-	button.Texture:SetPoint('CENTER')
+	ns:SetPoint(button.Texture, 'LEFT', button, 'LEFT', -CATEGORY_ART_BLEED, 0)
+	ns:SetPoint(button.Texture, 'RIGHT', button, 'RIGHT', CATEGORY_ART_BLEED, 0)
+	ns:SetHeight(button.Texture, CATEGORY_BUTTON_HEIGHT)
+	ns:DisableSharpening(button.Texture)
 
 	button.Label = button:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
-	button.Label:SetPoint('LEFT', button, 'LEFT', CATEGORY_LABEL_INSET, 0)
+	ns:SetPoint(button.Label, 'LEFT', button, 'LEFT', CATEGORY_LABEL_INSET, 0)
 	button.Label:SetJustifyH('LEFT')
 	button.Label:SetText(label)
 
 	function button:UpdateState()
 		if self.selected then
 			self.Label:SetFontObject('GameFontHighlight')
-			self.Texture:SetAtlas('Options_List_Active', TextureKitConstants.UseAtlasSize)
+			self.Texture:SetAtlas('Options_List_Active')
 			self.Texture:Show()
 		elseif self.over then
 			self.Label:SetFontObject('GameFontNormal')
-			self.Texture:SetAtlas('Options_List_Hover', TextureKitConstants.UseAtlasSize)
+			self.Texture:SetAtlas('Options_List_Hover')
 			self.Texture:Show()
 		else
 			self.Label:SetFontObject('GameFontNormal')
@@ -1837,6 +1957,321 @@ function ns:CreateTabSystem(parent, labels, onSelect, spacing)
 	return container
 end
 
+--[[ namespace:CreateEditableTabStrip(_parent_, _width_, _onSelect_, _onCreate_, _onRename_, _onDelete_) ![](https://img.shields.io/badge/function-blue)
+Creates a wrapping row of pills the user can create, rename and delete. Call
+`strip:SetEntries(entries, selectedKey)` any time the underlying list changes; the strip fully
+re-renders from what it is given rather than tracking its own state.
+
+Each entry is `{ key, label, locked }`. A locked entry shows a lock icon and has no delete control.
+Unlocked entries can be renamed by double-clicking the label and deleted via an (x) control. A
+trailing "+ New" pill is always drawn for creating entries.
+
+`onSelect(key)`, `onCreate(label)`, `onRename(key, label)` and `onDelete(key)` fire on the
+corresponding user action. Create/rename only fire on a non-empty confirm.
+
+Usage:
+```lua
+local strip = namespace:CreateEditableTabStrip(frame, 400, function(key)
+	ShowElement(key)
+end, function(label)
+	CreateElement(label)
+end, function(key, label)
+	RenameElement(key, label)
+end, function(key)
+	ConfirmDelete(key)
+end)
+strip:SetPoint('TOPLEFT')
+strip:SetEntries(GetEntries(), selectedKey)
+```
+--]]
+local TAB_STRIP_HEIGHT = 32
+local TAB_STRIP_ROW_GAP = 6
+local TAB_STRIP_SPACING = 6
+local TAB_STRIP_TEXT_PADDING = 28
+local TAB_STRIP_ICON_SIZE = 14
+local TAB_STRIP_DELETE_SIZE = 16
+local TAB_STRIP_DELETE_GAP = 6
+local TAB_STRIP_DELETE_PADDING = TAB_STRIP_DELETE_SIZE + TAB_STRIP_DELETE_GAP
+local TAB_STRIP_DELETE_ALPHA = 0.7
+local TAB_STRIP_DELETE_COLOR = { 0.9, 0.32, 0.32 }
+local TAB_STRIP_EDITBOX_WIDTH = 160
+local TAB_STRIP_EDITBOX_HEIGHT = 20
+local TAB_STRIP_EDITBOX_INSET = 8
+local TAB_STRIP_EDITBOX_OVERHANG = 5
+local TAB_STRIP_EDITBOX_PILL = TAB_STRIP_EDITBOX_WIDTH + 2 * TAB_STRIP_EDITBOX_INSET + TAB_STRIP_EDITBOX_OVERHANG
+local TAB_STRIP_LOCK_MARKUP = CreateAtlasMarkup('activities-icon-lock', 17, 22) .. ' '
+local TAB_STRIP_NEW_LABEL = CreateAtlasMarkup('uitools-icon-plus', TAB_STRIP_ICON_SIZE, TAB_STRIP_ICON_SIZE, 0, 0, 115, 191, 115) .. ' New'
+local TAB_STRIP_CENTER_SHADE = 179 / 255
+local TAB_STRIP_CREATE = 'create'
+
+local function ShadeCenter(color)
+	local alpha = color[4] or 1
+	local shaded = 1 - (1 - alpha) * (1 - TAB_STRIP_CENTER_SHADE)
+	local scale = alpha * (1 - TAB_STRIP_CENTER_SHADE) / shaded
+
+	return { color[1] * scale, color[2] * scale, color[3] * scale, shaded }
+end
+
+local TAB_STRIP_COLOR_NORMAL = { border = { 0.6, 0.6, 0.65, 0.9 }, center = ShadeCenter({ 0.18, 0.18, 0.2, 0.85 }) }
+local TAB_STRIP_COLOR_HOVER = { border = { 0.85, 0.85, 0.9, 1 }, center = ShadeCenter({ 0.28, 0.28, 0.32, 0.9 }) }
+local TAB_STRIP_COLOR_SELECTED = { border = { 0.36, 0.52, 0.88, 1 }, center = ShadeCenter({ 0.24, 0.36, 0.62, 1 }) }
+local TAB_STRIP_COLOR_NEW = { border = { 0.45, 0.75, 0.45, 0.9 }, center = ShadeCenter({ 0.16, 0.22, 0.16, 0.85 }) }
+local TAB_STRIP_COLOR_NEW_HOVER = { border = { 0.55, 0.85, 0.55, 1 }, center = ShadeCenter({ 0.24, 0.32, 0.24, 0.9 }) }
+
+local function TintPill(pill, color)
+	pill:SetBorderColor(color.border[1], color.border[2], color.border[3], color.border[4] or 1)
+	pill:SetCenterColor(color.center[1], color.center[2], color.center[3], color.center[4] or 1)
+end
+
+local function UpdatePillColor(pill)
+	local color = TAB_STRIP_COLOR_NORMAL
+
+	if pill.isNew then
+		color = pill.over and TAB_STRIP_COLOR_NEW_HOVER or TAB_STRIP_COLOR_NEW
+	elseif pill.selected then
+		color = TAB_STRIP_COLOR_SELECTED
+	elseif pill.over then
+		color = TAB_STRIP_COLOR_HOVER
+	end
+
+	TintPill(pill, color)
+end
+
+local function SetPillText(pill, text, reserved, isEditing)
+	pill.Text:SetText(text)
+
+	local width = pill.Text:GetStringWidth() + TAB_STRIP_TEXT_PADDING + reserved
+
+	if isEditing then
+		width = math.max(width, TAB_STRIP_EDITBOX_PILL)
+	end
+
+	return 2 * math.ceil(width / 2)
+end
+
+local function CreateTabStripDeleteButton(pill, onDelete)
+	local button = CreateFrame('Button', nil, pill)
+	ns:SetSize(button, TAB_STRIP_DELETE_SIZE, TAB_STRIP_DELETE_SIZE)
+	ns:SetPoint(button, 'RIGHT', pill, 'RIGHT', -TAB_STRIP_DELETE_GAP, 0)
+
+	local color = TAB_STRIP_DELETE_COLOR
+	local icon = button:CreateTexture(nil, 'OVERLAY')
+	icon:SetAtlas('uitools-icon-close')
+	ns:SetSize(icon, TAB_STRIP_ICON_SIZE, TAB_STRIP_ICON_SIZE)
+	ns:SetPoint(icon, 'CENTER', button, 'CENTER', 0, 0)
+	icon:SetVertexColor(color[1], color[2], color[3], TAB_STRIP_DELETE_ALPHA)
+	button.Icon = icon
+
+	button:SetScript('OnEnter', function()
+		icon:SetVertexColor(color[1], color[2], color[3], 1)
+	end)
+
+	button:SetScript('OnLeave', function()
+		icon:SetVertexColor(color[1], color[2], color[3], TAB_STRIP_DELETE_ALPHA)
+	end)
+
+	button:SetScript('OnClick', function()
+		onDelete(pill.key)
+	end)
+
+	return button
+end
+
+function ns:CreateEditableTabStrip(parent, width, onSelect, onCreate, onRename, onDelete)
+	ns:ArgCheck(width, 2, 'number')
+	ns:ArgCheck(onSelect, 3, 'function')
+	ns:ArgCheck(onCreate, 4, 'function')
+	ns:ArgCheck(onRename, 5, 'function')
+	ns:ArgCheck(onDelete, 6, 'function')
+
+	local container = CreateFrame('Frame', nil, parent)
+	container:SetWidth(width)
+
+	local pillPool = {}
+	local entries = {}
+	local selectedKey
+	local editing
+	local Layout, StopEditing
+
+	local editBox = CreateFrame('EditBox', nil, container, 'InputBoxTemplate')
+	ns:SetHeight(editBox, TAB_STRIP_EDITBOX_HEIGHT)
+	editBox:SetAutoFocus(true)
+	editBox:SetFontObject('ChatFontNormal')
+	editBox:Hide()
+
+	function StopEditing()
+		if not editing then
+			return
+		end
+
+		editing = nil
+		editBox:Hide()
+		Layout()
+	end
+
+	local function CommitEdit()
+		local text = editBox:GetText()
+		local target = editing
+
+		StopEditing()
+
+		if text == '' then
+			return
+		end
+
+		if target == TAB_STRIP_CREATE then
+			onCreate(text)
+		else
+			onRename(target, text)
+		end
+	end
+
+	editBox:SetScript('OnEnterPressed', CommitEdit)
+	editBox:SetScript('OnEscapePressed', StopEditing)
+	editBox:SetScript('OnEditFocusLost', StopEditing)
+
+	local function StartEditing(target, pill, currentText)
+		editBox:ClearAllPoints()
+		ns:SetPoint(editBox, 'LEFT', pill, 'LEFT', TAB_STRIP_EDITBOX_INSET + TAB_STRIP_EDITBOX_OVERHANG, 0)
+		editBox:SetWidth(pill:GetWidth() - 2 * TAB_STRIP_EDITBOX_INSET - TAB_STRIP_EDITBOX_OVERHANG)
+		editBox:SetText(currentText or '')
+		editBox:Show()
+		editBox:SetFocus()
+		editBox:HighlightText()
+	end
+
+	local function GetPill(index)
+		local pill = pillPool[index]
+
+		if pill then
+			return pill
+		end
+
+		pill = CreateFrame('Button', nil, container)
+		Mixin(pill, NineSlicePanelMixin)
+		NineSliceUtil.ApplyLayout(pill, PANEL_LAYOUT)
+
+		pill.Text = pill:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
+		ns:SetPoint(pill.Text, 'CENTER', pill, 'CENTER', 0, 0)
+
+		pill:SetScript('OnClick', function()
+			if pill.key then
+				onSelect(pill.key)
+			elseif editing ~= TAB_STRIP_CREATE then
+				editing = TAB_STRIP_CREATE
+				Layout()
+			end
+		end)
+
+		pill:SetScript('OnDoubleClick', function()
+			if pill.key and not pill.locked and editing ~= pill.key then
+				editing = pill.key
+				Layout()
+			end
+		end)
+
+		pill:SetScript('OnEnter', function()
+			pill.over = true
+			UpdatePillColor(pill)
+		end)
+
+		pill:SetScript('OnLeave', function()
+			pill.over = false
+			UpdatePillColor(pill)
+		end)
+
+		pillPool[index] = pill
+
+		return pill
+	end
+
+	local function PlacePill(pill, x, row, entryWidth)
+		if x > 0 and x + entryWidth > width then
+			x, row = 0, row + 1
+		end
+
+		ns:SetSize(pill, entryWidth, TAB_STRIP_HEIGHT)
+		pill:ClearAllPoints()
+		ns:SetPoint(pill, 'TOPLEFT', container, 'TOPLEFT', x, -row * (TAB_STRIP_HEIGHT + TAB_STRIP_ROW_GAP))
+		pill:Show()
+
+		return x + entryWidth + TAB_STRIP_SPACING, row
+	end
+
+	function Layout()
+		local x, row = 0, 0
+		local index = 0
+		local pill, pillWidth, isEditing
+
+		for _, entry in ipairs(entries) do
+			index = index + 1
+			pill = GetPill(index)
+			pill.key = entry.key
+			pill.locked = entry.locked
+			pill.isNew = false
+			pill.selected = entry.key == selectedKey
+			isEditing = editing == entry.key
+
+			pillWidth = SetPillText(pill, (entry.locked and TAB_STRIP_LOCK_MARKUP or '') .. entry.label,
+				entry.locked and 0 or TAB_STRIP_DELETE_PADDING, isEditing)
+
+			x, row = PlacePill(pill, x, row, pillWidth)
+			UpdatePillColor(pill)
+
+			if entry.locked then
+				if pill.DeleteButton then
+					pill.DeleteButton:Hide()
+				end
+			else
+				pill.DeleteButton = pill.DeleteButton or CreateTabStripDeleteButton(pill, onDelete)
+				pill.DeleteButton:SetShown(not isEditing)
+			end
+
+			pill.Text:SetShown(not isEditing)
+
+			if isEditing then
+				StartEditing(entry.key, pill, entry.label)
+			end
+		end
+
+		index = index + 1
+		pill = GetPill(index)
+		pill.key = nil
+		pill.locked = nil
+		pill.isNew = true
+		pill.selected = false
+		isEditing = editing == TAB_STRIP_CREATE
+
+		if pill.DeleteButton then
+			pill.DeleteButton:Hide()
+		end
+
+		pillWidth = SetPillText(pill, TAB_STRIP_NEW_LABEL, 0, isEditing)
+		x, row = PlacePill(pill, x, row, pillWidth)
+		UpdatePillColor(pill)
+
+		pill.Text:SetShown(not isEditing)
+
+		if isEditing then
+			StartEditing(TAB_STRIP_CREATE, pill)
+		end
+
+		for position = index + 1, #pillPool do
+			pillPool[position]:Hide()
+		end
+
+		container:SetHeight((row + 1) * TAB_STRIP_HEIGHT + row * TAB_STRIP_ROW_GAP)
+	end
+
+	function container:SetEntries(newEntries, newSelectedKey)
+		entries = newEntries
+		selectedKey = newSelectedKey
+		Layout()
+	end
+
+	return container
+end
+
 --[[ namespace:CreateTabContainer(_parent_[, _height_]) ![](https://img.shields.io/badge/function-blue)
 Creates the bordered content frame the settings window draws behind its category list and settings
 list - the `Options_InnerFrame` atlas, which includes the vertical divider between the two columns.
@@ -1915,4 +2350,3 @@ function ns:CreateButton(parent, text, onClick)
 
 	return button
 end
-
