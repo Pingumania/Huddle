@@ -22,6 +22,14 @@ function ns:IsClassic()
 end
 
 local _, buildVersion, _, interfaceVersion = GetBuildInfo()
+
+--[[ namespace:IsForever() ![](https://img.shields.io/badge/function-blue)
+Checks if the current client is running the "forever" version.
+--]]
+function ns:IsForever()
+	return ns:HasVersion(16001) and interfaceVersion < 20000
+end
+
 --[[ namespace:HasVersion(_interfaceVersion_) ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running an interface version equal to or newer than the specified.
 --]]
