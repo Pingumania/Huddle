@@ -4,7 +4,7 @@ local _, ns = ...
 Checks if the current client is running the "retail" version.
 --]]
 function ns:IsRetail()
-	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and not ns:IsForever()
 end
 
 --[[ namespace:IsClassicEra() ![](https://img.shields.io/badge/function-blue)
@@ -18,7 +18,7 @@ end
 Checks if the current client is running the "classic" version.
 --]]
 function ns:IsClassic()
-	return not ns:IsRetail() and not ns:IsClassicEra()
+	return not ns:IsRetail() and not ns:IsClassicEra() and not ns:IsForever()
 end
 
 local _, buildVersion, _, interfaceVersion = GetBuildInfo()
