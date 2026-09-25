@@ -21,7 +21,7 @@ local RELOAD_NOTE = L.RELOAD_NOTE
 
 local reloadPopup = ADDON_NAME .. '_HUDDLE_RELOAD_REQUIRED'
 local reloadRequired = {}
-local reloadAcknowledged
+local reloadWarned
 
 StaticPopupDialogs[reloadPopup] = {
 	text = RELOAD_NOTE .. '|n|n' .. L.RELOAD_INSTRUCTION,
@@ -29,9 +29,6 @@ StaticPopupDialogs[reloadPopup] = {
 	timeout = 0,
 	whileDead = true,
 	hideOnEscape = true,
-	OnAccept = function()
-		reloadAcknowledged = true
-	end,
 }
 
 local defaultsPopup = ADDON_NAME .. '_HUDDLE_APPLY_DEFAULTS'
@@ -51,7 +48,8 @@ StaticPopupDialogs[defaultsPopup] = {
 local function onSettingChanged(setting, value)
 	ns:TriggerOptionCallback(setting.variableKey, value)
 
-	if reloadRequired[setting.variableKey] and not reloadAcknowledged then
+	if reloadRequired[setting.variableKey] and not reloadWarned then
+		reloadWarned = true
 		StaticPopup_Show(reloadPopup)
 	end
 end
