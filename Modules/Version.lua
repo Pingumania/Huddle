@@ -30,6 +30,13 @@ function ns:IsForever()
 	return ns:HasVersion(16001) and interfaceVersion < 20000
 end
 
+--[[ namespace:IsMainline() ![](https://img.shields.io/badge/function-blue)
+Checks if the current client is running the "mainline" interface, shared by the "retail" and "forever" versions.
+--]]
+function ns:IsMainline()
+	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+end
+
 --[[ namespace:HasVersion(_interfaceVersion_) ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running an interface version equal to or newer than the specified.
 --]]
