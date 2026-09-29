@@ -1409,6 +1409,69 @@ function ns:CreateToggle(parent, label, getValue, setValue)
 	return checkbox
 end
 
+--[[ namespace:CreateColorSwatch(_parent_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
+Creates Blizzard's own `ColorSwatchTemplate`, sized to match `namespace:CreateToggle`. Clicking it
+opens the color picker. `getValue` returns and `setValue` receives `r, g, b`; cancelling the picker
+hands back the previous color. Call `swatch:Refresh()` to redraw it after the value changed
+elsewhere.
+
+The swatch is sized in whole physical pixels with its rings inset from the outer square, so they stay
+one pixel wide wherever the swatch lands.
+--]]
+local SWATCH_WIDTH = 30
+local SWATCH_HEIGHT = 29
+local SWATCH_SIZE = 24
+
+local function insetSwatchTexture(texture, anchor, inset)
+	texture:ClearAllPoints()
+	texture:SetPoint('TOPLEFT', anchor, 'TOPLEFT', inset, -inset)
+	texture:SetPoint('BOTTOMRIGHT', anchor, 'BOTTOMRIGHT', -inset, inset)
+end
+
+local function sizeSwatch(swatch)
+	local pixel = ns:PixelSize(swatch)
+	local size = Round(SWATCH_SIZE / pixel) * pixel
+
+	swatch.SwatchBg:SetSize(size, size)
+	insetSwatchTexture(swatch.InnerBorder, swatch.SwatchBg, pixel)
+	insetSwatchTexture(swatch.Color, swatch.SwatchBg, 2 * pixel)
+end
+
+function ns:CreateColorSwatch(parent, getValue, setValue)
+	ns:ArgCheck(getValue, 2, 'function')
+	ns:ArgCheck(setValue, 3, 'function')
+
+	local swatch = CreateFrame('Button', nil, parent, 'ColorSwatchTemplate')
+	swatch:SetSize(SWATCH_WIDTH, SWATCH_HEIGHT)
+	swatch:SetScript('OnShow', sizeSwatch)
+	sizeSwatch(swatch)
+
+	function swatch:Refresh()
+		self:SetColorRGB(getValue())
+	end
+
+	local info = {}
+
+	info.swatchFunc = function()
+		setValue(ColorPickerFrame:GetColorRGB())
+		swatch:Refresh()
+	end
+
+	info.cancelFunc = function()
+		setValue(ColorPickerFrame:GetPreviousValues())
+		swatch:Refresh()
+	end
+
+	swatch:SetScript('OnClick', function()
+		info.r, info.g, info.b = getValue()
+		ColorPickerFrame:SetupColorPickerAndShow(info)
+	end)
+
+	swatch:Refresh()
+
+	return swatch
+end
+
 --[[ namespace:CreateSlider(_parent_, _minValue_, _maxValue_, _valueStep_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a native slider with +/- steppers (Blizzard's own `MinimalSliderWithSteppersTemplate`).
 `getValue`/`setValue` read/write the numeric value.
