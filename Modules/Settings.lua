@@ -1139,12 +1139,23 @@ function ns:RegisterSubSettingsCanvas(name, callback)
 	})
 end
 
+--[[ namespace:SetSettingsHandler(_callback_) ![](https://img.shields.io/badge/function-blue)
+Replaces what `namespace:OpenSettings()` does with `callback`, for addons with their own settings window.
+--]]
+local settingsHandler
+function ns:SetSettingsHandler(callback)
+	ns:ArgCheck(callback, 1, 'function')
+	settingsHandler = callback
+end
+
 --[[ namespace:OpenSettings() ![](https://img.shields.io/badge/function-blue)
-Opens the settings panel for this addon.
+Opens the settings panel for this addon, or calls the handler set with `namespace:SetSettingsHandler(callback)`.
 --]]
 function ns:OpenSettings()
 	assert(not not settingsCategoryID, 'must register settings first')
-	if InCombatLockdown() then
+	if settingsHandler then
+		settingsHandler()
+	elseif InCombatLockdown() then
 		ns:Print(L.COMBAT_BLOCKED)
 	else
 		Settings.OpenToCategory(settingsCategoryID)
