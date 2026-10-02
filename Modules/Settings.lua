@@ -1681,11 +1681,11 @@ end
 
 --[[ namespace:CreateSettingsHeader(_parent_, _title_) ![](https://img.shields.io/badge/function-blue)
 Creates the content header the settings panel draws above a page - a `GameFontHighlightHuge` title,
-a Defaults button at the top right and an `Options_HorizontalDivider` along the bottom, at Blizzard's
-own offsets. Anchored to the top of `parent`.
+a Defaults button at the top right, a Reload UI button left of it and an `Options_HorizontalDivider`
+along the bottom, at Blizzard's own offsets. Anchored to the top of `parent`.
 
-The header carries `Title` and `DefaultsButton`. The button starts hidden, since a page without a
-defaults handler has nothing to reset.
+The header carries `Title`, `DefaultsButton` and `ReloadButton`. The Defaults button starts hidden,
+since a page without a defaults handler has nothing to reset.
 
 Usage:
 ```lua
@@ -1697,6 +1697,7 @@ local HEADER_HEIGHT = 50
 local HEADER_TITLE_X, HEADER_TITLE_Y = 7, -22
 local HEADER_BUTTON_X, HEADER_BUTTON_Y = -36, -16
 local HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT = 96, 22
+local HEADER_BUTTON_GAP = 4
 
 function ns:CreateSettingsHeader(parent, title)
 	local header = CreateFrame('Frame', nil, parent)
@@ -1714,6 +1715,12 @@ function ns:CreateSettingsHeader(parent, title)
 	header.DefaultsButton:SetSize(HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT)
 	header.DefaultsButton:SetText(SETTINGS_DEFAULTS)
 	header.DefaultsButton:Hide()
+
+	header.ReloadButton = CreateFrame('Button', nil, header, 'UIPanelButtonTemplate')
+	header.ReloadButton:SetPoint('RIGHT', header.DefaultsButton, 'LEFT', -HEADER_BUTTON_GAP, 0)
+	header.ReloadButton:SetSize(HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT)
+	header.ReloadButton:SetText(RELOADUI)
+	header.ReloadButton:SetScript('OnClick', ReloadUI)
 
 	local divider = header:CreateTexture(nil, 'ARTWORK')
 	divider:SetAtlas('Options_HorizontalDivider', TextureKitConstants.UseAtlasSize)
