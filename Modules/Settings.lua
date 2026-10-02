@@ -891,6 +891,16 @@ local function registerSettings(savedvariable, settings)
 	Settings.RegisterAddOnCategory(category)
 	settingsCategoryID = category:GetID()
 
+	if AddonCompartmentFrame then
+		AddonCompartmentFrame:RegisterAddon({
+			text = categoryName,
+			icon = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconTexture'),
+			func = function()
+				ns:OpenSettings()
+			end,
+		})
+	end
+
 	if not _G[savedvariable] then
 		_G[savedvariable] = {}
 	end
