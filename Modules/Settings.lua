@@ -772,6 +772,21 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	evaluate()
 end
 
+local function visibleSettings(settings)
+	local visible = {}
+	for _, info in ipairs(settings) do
+		if not info.hidden then
+			if info.settings then
+				info.settings = visibleSettings(info.settings)
+			end
+
+			visible[#visible + 1] = info
+		end
+	end
+
+	return visible
+end
+
 local function findSubSettings(children, name)
 	for _, info in ipairs(children) do
 		if info.name == name then
@@ -978,6 +993,7 @@ ns:RegisterSettings('MyAddOnDB', {
 		tooltip = 'Longer description of the color in a tooltip',
 		default = 'ffff00ff', -- "AARRGGBB" format
 		requiresReload = true, -- (optional) marks the row and warns once per session when changed
+		hidden = not C_Intl, -- (optional) leaves this entry out, for entries a client does not support
 	},
 	{
 		type = 'header',
@@ -1070,6 +1086,8 @@ function ns:RegisterSettings(savedvariable, settings)
 		self.settingsChildren = {}
 	end
 
+	settings = visibleSettings(settings)
+
 	whenLoaded(function()
 		registerSettings(savedvariable, settings)
 	end)
@@ -1088,7 +1106,7 @@ function ns:RegisterSubSettings(name, settings)
 	assert(not findSubSettings(self.settingsChildren, name), "can't register two sub-settings with the same name")
 	table.insert(self.settingsChildren, {
 		name = name,
-		settings = settings,
+		settings = visibleSettings(settings),
 	})
 end
 
