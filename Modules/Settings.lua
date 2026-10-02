@@ -2388,7 +2388,7 @@ Each entry is `{ key, label }`. List order is row order, top first. Every row ca
 (x) controls; up is disabled on the first row and down on the last.
 
 `onMove(key, delta)` fires with `-1` for up and `1` for down, and `onRemove(key)` fires on the (x)
-control. Neither callback is given the new list - the widget never owns the data, so change it and
+control. Pass `nil` for `onMove` to drop the up and down controls, for a list that only removes. Neither callback is given the new list - the widget never owns the data, so change it and
 call `SetEntries` again.
 
 `list:SetEnabled(enabled)` greys the labels and disables every row control, for lists whose contents
@@ -2431,7 +2431,7 @@ end
 
 function ns:CreateOrderedList(parent, width, onMove, onRemove)
 	ns:ArgCheck(width, 2, 'number')
-	ns:ArgCheck(onMove, 3, 'function')
+	ns:ArgCheck(onMove, 3, 'function', 'nil')
 	ns:ArgCheck(onRemove, 4, 'function')
 
 	local container = CreateFrame('Frame', nil, parent)
@@ -2457,14 +2457,19 @@ function ns:CreateOrderedList(parent, width, onMove, onRemove)
 		row = CreateFrame('Frame', nil, container)
 		ns:SetSize(row, width, ORDERED_LIST_ROW_HEIGHT)
 
-		row.Up = CreateOrderedListButton(row, 'UP', MoveUp)
-		ns:SetPoint(row.Up, 'LEFT', row, 'LEFT', 0, 0)
-
-		row.Down = CreateOrderedListButton(row, 'DOWN', MoveDown)
-		ns:SetPoint(row.Down, 'LEFT', row.Up, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
-
 		row.Remove = CreateOrderedListButton(row, 'DELETE', onRemove)
-		ns:SetPoint(row.Remove, 'LEFT', row.Down, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
+
+		if onMove then
+			row.Up = CreateOrderedListButton(row, 'UP', MoveUp)
+			ns:SetPoint(row.Up, 'LEFT', row, 'LEFT', 0, 0)
+
+			row.Down = CreateOrderedListButton(row, 'DOWN', MoveDown)
+			ns:SetPoint(row.Down, 'LEFT', row.Up, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
+
+			ns:SetPoint(row.Remove, 'LEFT', row.Down, 'RIGHT', ORDERED_LIST_BUTTON_GAP, 0)
+		else
+			ns:SetPoint(row.Remove, 'LEFT', row, 'LEFT', 0, 0)
+		end
 
 		row.Label = row:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
 		row.Label:SetJustifyH('LEFT')
@@ -2494,8 +2499,10 @@ function ns:CreateOrderedList(parent, width, onMove, onRemove)
 			row:ClearAllPoints()
 			ns:SetPoint(row, 'TOPLEFT', container, 'TOPLEFT', 0,
 				-(index - 1) * (ORDERED_LIST_ROW_HEIGHT + ORDERED_LIST_ROW_GAP))
-			row.Up:SetEnabled(enabled and index > 1)
-			row.Down:SetEnabled(enabled and index < count)
+			if onMove then
+				row.Up:SetEnabled(enabled and index > 1)
+				row.Down:SetEnabled(enabled and index < count)
+			end
 			row.Remove:SetEnabled(enabled)
 			row:Show()
 		end
