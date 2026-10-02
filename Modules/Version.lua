@@ -4,7 +4,7 @@ local _, ns = ...
 Checks if the current client is running the "retail" version.
 --]]
 function ns:IsRetail()
-	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and not ns:IsForever()
+	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 end
 
 --[[ namespace:IsClassicEra() ![](https://img.shields.io/badge/function-blue)
@@ -21,21 +21,21 @@ function ns:IsClassic()
 	return not ns:IsRetail() and not ns:IsClassicEra() and not ns:IsForever()
 end
 
-local _, buildVersion, _, interfaceVersion = GetBuildInfo()
-
 --[[ namespace:IsForever() ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running the "forever" version.
 --]]
 function ns:IsForever()
-	return ns:HasVersion(16001) and interfaceVersion < 20000
+	return WOW_PROJECT_ID == WOW_PROJECT_CAMELOT
 end
 
 --[[ namespace:IsMainline() ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running the "mainline" interface, shared by the "retail" and "forever" versions.
 --]]
 function ns:IsMainline()
-	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+	return ns:IsRetail() or ns:IsForever()
 end
+
+local _, buildVersion, _, interfaceVersion = GetBuildInfo()
 
 --[[ namespace:HasVersion(_interfaceVersion_) ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running an interface version equal to or newer than the specified.
