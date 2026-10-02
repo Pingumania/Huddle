@@ -16,7 +16,7 @@ local L = setmetatable({}, {
 	end,
 })
 
-local RELOAD_ICON = CreateAtlasMarkup('Recurringavailablequesticon', 16, 16)
+local RELOAD_ICON = '|TInterface/AddOns/' .. ADDON_NAME .. '/Libs/Huddle/reload-small:16:16:0:0:32:32:0:32:0:32:0:191:243|t'
 local RELOAD_NOTE = L.RELOAD_NOTE
 
 local reloadPopup = ADDON_NAME .. '_HUDDLE_RELOAD_REQUIRED'
