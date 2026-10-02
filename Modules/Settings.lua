@@ -891,16 +891,6 @@ local function registerSettings(savedvariable, settings)
 	Settings.RegisterAddOnCategory(category)
 	settingsCategoryID = category:GetID()
 
-	if AddonCompartmentFrame then
-		AddonCompartmentFrame:RegisterAddon({
-			text = categoryName,
-			icon = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconTexture'),
-			func = function()
-				ns:OpenSettings()
-			end,
-		})
-	end
-
 	if not _G[savedvariable] then
 		_G[savedvariable] = {}
 	end
@@ -1146,6 +1136,21 @@ local settingsHandler
 function ns:SetSettingsHandler(callback)
 	ns:ArgCheck(callback, 1, 'function')
 	settingsHandler = callback
+end
+
+--[[ namespace:RegisterAddonCompartment() ![](https://img.shields.io/badge/function-blue)
+Adds this addon to the minimap addon compartment. Clicking the entry calls `namespace:OpenSettings()`.
+--]]
+function ns:RegisterAddonCompartment()
+	if AddonCompartmentFrame then
+		AddonCompartmentFrame:RegisterAddon({
+			text = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'Title'),
+			icon = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconTexture'),
+			func = function()
+				ns:OpenSettings()
+			end,
+		})
+	end
 end
 
 --[[ namespace:OpenSettings() ![](https://img.shields.io/badge/function-blue)
