@@ -7,18 +7,11 @@ function ns:IsRetail()
 	return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 end
 
---[[ namespace:IsClassicEra() ![](https://img.shields.io/badge/function-blue)
-Checks if the current client is running the "classic era" version (e.g. vanilla).
---]]
-function ns:IsClassicEra()
-	return WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
-end
-
 --[[ namespace:IsClassic() ![](https://img.shields.io/badge/function-blue)
 Checks if the current client is running the "classic" version.
 --]]
 function ns:IsClassic()
-	return not ns:IsRetail() and not ns:IsClassicEra() and not ns:IsForever()
+	return not ns:IsRetail() and not ns:IsForever()
 end
 
 --[[ namespace:IsForever() ![](https://img.shields.io/badge/function-blue)

@@ -273,10 +273,7 @@ end
 local function registerSetting(category, savedvariable, info)
 	local setting, _, tooltip = createSetting(category, savedvariable, info)
 
-	local initializer
-	if not (info.type == 'color' and ns:IsClassicEra()) then
-		initializer = createControlInitializer(setting, info, tooltip)
-	end
+	local initializer = createControlInitializer(setting, info, tooltip)
 
 	setting:SetValueChangedCallback(onSettingChanged)
 	ns:TriggerOptionCallback(info.key, setting:GetValue())
@@ -720,7 +717,6 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end
 
 			controls[#controls + 1] = row
-		elseif info.type == 'color' and ns:IsClassicEra() then
 		else
 			local setting, _, tooltip = createSetting(category, savedvariable, info)
 			local link = resolveLink(info)
