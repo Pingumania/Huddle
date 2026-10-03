@@ -1172,7 +1172,8 @@ function ns:RegisterAddonCompartment()
 	if AddonCompartmentFrame then
 		AddonCompartmentFrame:RegisterAddon({
 			text = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'Title'),
-			icon = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconTexture'),
+			icon = C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconTexture')
+				or C_AddOns.GetAddOnMetadata(ADDON_NAME, 'IconAtlas'),
 			func = function()
 				ns:OpenSettings()
 			end,
