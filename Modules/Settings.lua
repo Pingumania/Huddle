@@ -619,10 +619,10 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				self:DisplayEnabled(enabled)
 
 				if self.customControl then
-					self.customControl:SetAlpha(enabled and 1 or 0.4)
-
 					if self.customControl.SetEnabled then
 						self.customControl:SetEnabled(enabled)
+					else
+						self.customControl:SetAlpha(enabled and 1 or 0.4)
 					end
 				end
 			end
@@ -691,7 +691,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 				for _, checkbox in ipairs(self.huddleToggles) do
 					checkbox:SetEnabled(enabled)
-					checkbox:SetAlpha(enabled and 1 or 0.4)
+					checkbox.Text:SetTextColor((enabled and NORMAL_FONT_COLOR or GRAY_FONT_COLOR):GetRGB())
 				end
 			end
 
