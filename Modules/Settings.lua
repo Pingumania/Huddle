@@ -150,6 +150,7 @@ local CANVAS_CONTROL_ANCHORS = {
 	menu = {key = 'Control', x = -48, y = 3},
 	color = {key = 'ColorSwatch', x = -73, y = 0},
 	custom = {key = 'customControl', x = -48, y = 3},
+	media = {key = 'customControl', x = -48, y = 3},
 }
 
 local function shiftCanvasControl(row, info)
@@ -177,7 +178,7 @@ local CANVAS_TEMPLATES = {
 	color = 'SettingsColorSwatchControlTemplate',
 }
 
-local CANVAS_TYPES = {custom = true, description = true, preview = true, section = true, toggles = true}
+local CANVAS_TYPES = {custom = true, description = true, media = true, preview = true, section = true, toggles = true}
 
 local TOGGLES_GAP = 24
 local TOGGLES_INDENT = 21
@@ -552,6 +553,38 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		ns:TriggerOptionCallback(key, setting:GetValue())
 	end
 
+	local function createCustomRow(info, createControl)
+		local link = resolveLink(info)
+		local row, initializer = createElementRow(info, link)
+
+		function row:EvaluateState()
+			local enabled = isLinkEnabled(link)
+			self:DisplayEnabled(enabled)
+
+			if not self.customControl then
+				return
+			end
+
+			if self.customControl.SetEnabled then
+				self.customControl:SetEnabled(enabled)
+			else
+				self.customControl:SetAlpha(enabled and 1 or 0.4)
+			end
+		end
+
+		initCanvasRow(row, initializer)
+
+		row.customControl = createControl(row)
+		shiftCanvasControl(row, info)
+
+		if row.customControl.SetTooltipFunc then
+			row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
+		end
+		controls[#controls + 1] = row
+
+		return row
+	end
+
 	local function addRow(info, section)
 		local row, sectionState
 
@@ -610,36 +643,27 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			ns:ArgCheck(info.title, 3, 'string')
 			ns:ArgCheck(info.createControl, 3, 'function')
 
-			local link = resolveLink(info)
-			local initializer
-			row, initializer = createElementRow(info, link)
-
-			function row:EvaluateState()
-				local enabled = isLinkEnabled(link)
-				self:DisplayEnabled(enabled)
-
-				if self.customControl then
-					if self.customControl.SetEnabled then
-						self.customControl:SetEnabled(enabled)
-					else
-						self.customControl:SetAlpha(enabled and 1 or 0.4)
-					end
-				end
-			end
-
-			initCanvasRow(row, initializer)
-
-			row.customControl = info.createControl(row)
-			shiftCanvasControl(row, info)
+			row = createCustomRow(info, info.createControl)
 
 			if info.onDefaults then
 				customDefaults[#customDefaults + 1] = info.onDefaults
 			end
+		elseif info.type == 'media' then
+			ns:ArgCheck(info.mediaType, 3, 'string')
 
-			if row.customControl.SetTooltipFunc then
-				row.customControl:SetTooltipFunc(GenerateClosure(Settings.InitTooltip, info.title, info.tooltip))
-			end
-			controls[#controls + 1] = row
+			local setting = createSetting(category, savedvariable, info)
+			links[info.key] = resolveLink(info)
+			settingsByKey[info.key] = setting
+
+			row = createCustomRow(info, function(rowFrame)
+				return ns:CreateMediaDropdown(rowFrame, info.mediaType, function()
+					return setting:GetValue()
+				end, function(value)
+					setting:SetValue(value)
+				end)
+			end)
+
+			bindSetting(info.key, setting)
 		elseif info.type == 'toggles' then
 			ns:ArgCheck(info.settings, 3, 'table')
 
@@ -994,6 +1018,13 @@ ns:RegisterSettings('MyAddOnDB', {
 		default = 'ffff00ff', -- "AARRGGBB" format
 		requiresReload = true, -- (optional) marks the row and warns once per session when changed
 		hidden = not C_Intl, -- (optional) leaves this entry out, for entries a client does not support
+	},
+	{
+		key = 'myFont',
+		type = 'media', -- a LibSharedMedia-3.0 dropdown, see namespace:CreateMediaDropdown
+		mediaType = 'font', -- 'font', 'statusbar' or 'sound'
+		title = 'My Font',
+		default = 'Friz Quadrata TT',
 	},
 	{
 		type = 'header',
