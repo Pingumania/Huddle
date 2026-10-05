@@ -53,37 +53,67 @@ function ns:ClearPixelPerfect(frame)
 end
 
 --[[ namespace:SnapToPixelGrid(_frame_) ![](https://img.shields.io/badge/function-blue)
-Nudges `frame` so its bottom left corner lands on a whole physical pixel, by adjusting the offsets of
-its single anchor point.
+Nudges the offsets of every anchor point of `frame` so the edges those points pin land on whole
+physical pixels. A `TOPLEFT` point snaps the top and left edges, a `BOTTOMRIGHT` point the bottom
+and right edges. On an axis a point leaves centered, the left or bottom edge is snapped, so a frame
+anchored `CENTER` stays crisp with an odd pixel size.
 
 Sizes snapped with `namespace:SetSize` only stay crisp if the frame they sit in starts on the grid.
 A frame anchored `CENTER` or dropped by the user lands wherever it lands, and every child inherits
 that fraction, which is what makes a one pixel border look thinner on one edge than the other. Call
-it after the frame moves. Frames with more or less than one anchor point are left alone.
+it after the frame moves.
+
+When the frame has no rect yet, or its rect is secret, each anchor point itself is snapped instead,
+from the rect of the region it is anchored to.
 
 Usage:
 ```lua
 namespace:SnapToPixelGrid(frame)
 ```
 --]]
+local FRAME_POINTS = {'TOPLEFT', 'TOP', 'TOPRIGHT', 'LEFT', 'CENTER', 'RIGHT', 'BOTTOMLEFT', 'BOTTOM', 'BOTTOMRIGHT'}
+
+local function pixelOffset(position, unit)
+	local pixel = position / unit
+	return (math.floor(pixel + 0.5) - pixel) * unit
+end
+
+local function anchorPosition(frame, relativeTo, relativePoint, x, y)
+	local left, bottom, width, height = relativeTo:GetRect()
+
+	if issecretvalue(left) or not left then
+		return
+	end
+
+	local ratio = relativeTo:GetEffectiveScale() / frame:GetEffectiveScale()
+	local anchorX = relativePoint:find('LEFT') and left or relativePoint:find('RIGHT') and left + width or left + width / 2
+	local anchorY = relativePoint:find('TOP') and bottom + height or relativePoint:find('BOTTOM') and bottom or bottom + height / 2
+
+	return anchorX * ratio + x, anchorY * ratio + y
+end
+
 function ns:SnapToPixelGrid(frame)
-	if frame:GetNumPoints() ~= 1 then
-		return
-	end
-
-	local left, bottom = frame:GetRect()
-
-	if not left then
-		return
-	end
-
-	local point, relativeTo, relativePoint, x, y = frame:GetPoint(1)
+	local left, bottom, width, height = frame:GetRect()
+	local useRect = not issecretvalue(left) and left
 	local unit = PixelUtil.GetPixelToUIUnitFactor() / frame:GetEffectiveScale()
-	local pixelX, pixelY = left / unit, bottom / unit
+	local point, relativeTo, relativePoint, x, y, positionX, positionY
 
-	frame:SetPoint(point, relativeTo, relativePoint,
-		x + (math.floor(pixelX + 0.5) - pixelX) * unit,
-		y + (math.floor(pixelY + 0.5) - pixelY) * unit)
+	for _, name in ipairs(FRAME_POINTS) do
+		point, relativeTo, relativePoint, x, y = frame:GetPointByName(name)
+
+		if point then
+			if useRect then
+				positionX = point:find('RIGHT') and left + width or left
+				positionY = point:find('TOP') and bottom + height or bottom
+			else
+				positionX, positionY = anchorPosition(frame, relativeTo or frame:GetParent(), relativePoint, x, y)
+			end
+
+			if positionX then
+				frame:SetPoint(point, relativeTo, relativePoint, x + pixelOffset(positionX, unit), y + pixelOffset(positionY, unit))
+			end
+		end
+	end
 end
 
 --[[ namespace:PixelSize(_region_[, _pixels_]) ![](https://img.shields.io/badge/function-blue)

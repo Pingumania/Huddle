@@ -6,6 +6,7 @@ local STRINGS = {
 		RELOAD_INSTRUCTION = 'Use /reload when you are done changing settings.',
 		DEFAULTS_CONFIRM = 'Reset the settings on this page to their defaults?',
 		COMBAT_BLOCKED = "Can't open settings this way in combat",
+		COLOR_RESET_HINT = 'Right-click to reset to default.',
 	},
 }
 
@@ -184,6 +185,8 @@ local CANVAS_TEMPLATES = {
 local CANVAS_TYPES = {colors = true, custom = true, description = true, input = true, media = true, preview = true, section = true, toggles = true}
 
 local TOGGLES_GAP = 24
+local COLORS_COLUMN_WIDTH = 110
+local COLORS_LABEL_GAP = 4
 local TOGGLES_INDENT = 21
 
 local function needsCanvas(settings)
@@ -413,6 +416,28 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 	local order = {}
 	local controls = {}
+
+	local function snapSwatches()
+		for _, row in ipairs(controls) do
+			if row.huddleSwatches and row:IsVisible() then
+				for _, swatch in ipairs(row.huddleSwatches) do
+					swatch:SetPoint('LEFT', row, 'CENTER', swatch.huddleX, swatch.huddleY)
+					ns:SnapToPixelGrid(swatch)
+				end
+			end
+		end
+	end
+
+	scroll:HookScript('OnShow', snapSwatches)
+	scroll:HookScript('OnVerticalScroll', function(self, offset)
+		local pixel = ns:PixelSize(self)
+		local maximum = math.floor(self:GetVerticalScrollRange() / pixel) * pixel
+		local rounded = math.min(Round(offset / pixel) * pixel, maximum)
+
+		if math.abs(rounded - offset) > 0.001 then
+			self:SetVerticalScroll(rounded)
+		end
+	end)
 	local settingsByKey = {}
 	local links = {}
 
@@ -502,6 +527,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 		local offset = math.max(columnOffsets[1], columnOffsets[2])
 		content:SetHeight(math.max(offset, 1))
 		scrollBar:SetShown(content:GetHeight() > scroll:GetHeight() + 1)
+		snapSwatches()
 	end
 
 	local function isLinkEnabled(link)
@@ -786,6 +812,79 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 				for _, checkbox in ipairs(self.huddleToggles) do
 					checkbox:SetEnabled(enabled)
 					checkbox.Text:SetTextColor((enabled and NORMAL_FONT_COLOR or GRAY_FONT_COLOR):GetRGB())
+				end
+			end
+
+			controls[#controls + 1] = row
+		elseif info.type == 'colors' then
+			ns:ArgCheck(info.settings, 3, 'table')
+
+			local link = resolveLink(info)
+			local initializer
+			row, initializer = createElementRow(info, link)
+
+			initCanvasRow(row, initializer)
+
+			row.huddleSwatches = {}
+
+			for index, entry in ipairs(info.settings) do
+				assert(#entry.default == 8, 'color default must be an 8-character AARRGGBB hex string')
+
+				local setting = createSetting(category, savedvariable,
+					{key = entry.key, type = 'color', title = entry.title, default = entry.default})
+				links[entry.key] = link
+				settingsByKey[entry.key] = setting
+
+				local swatch = ns:CreateColorSwatch(row, function()
+					return CreateColorFromHexString(setting:GetValue()):GetRGBA()
+				end, function(r, g, b, a)
+					local red, green, blue, alpha = CreateColor(r, g, b, a or 1):GetRGBAAsBytes()
+					setting:SetValue(('%.2x%.2x%.2x%.2x'):format(alpha, red, green, blue))
+				end, entry.hasOpacity)
+				swatch:SetFrameLevel(row.Tooltip:GetFrameLevel() + 1)
+				swatch:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+
+				local openPicker = swatch:GetScript('OnClick')
+				swatch:SetScript('OnClick', function(self, button)
+					if button == 'RightButton' then
+						setting:SetValueToDefault()
+					else
+						openPicker(self, button)
+					end
+				end)
+
+				swatch:HookScript('OnEnter', function(self)
+					GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+					GameTooltip:SetText(entry.title)
+					GameTooltip:AddLine(L.COLOR_RESET_HINT, HIGHLIGHT_FONT_COLOR:GetRGB())
+					GameTooltip:Show()
+				end)
+				swatch:HookScript('OnLeave', GameTooltip_Hide)
+
+				swatch.huddleX = CANVAS_CONTROL_ANCHORS.toggle.x + CANVAS_CONTROL_SHIFT + (index - 1) * COLORS_COLUMN_WIDTH
+				swatch.huddleY = CANVAS_CONTROL_ANCHORS.toggle.y
+				swatch:SetPoint('LEFT', row, 'CENTER', swatch.huddleX, swatch.huddleY)
+
+				swatch.Text = row:CreateFontString(nil, 'ARTWORK', 'GameFontNormal')
+				swatch.Text:SetPoint('LEFT', swatch, 'RIGHT', COLORS_LABEL_GAP, 0)
+				swatch.Text:SetText(entry.title)
+
+				bindSetting(entry.key, setting)
+
+				row.huddleSwatches[#row.huddleSwatches + 1] = swatch
+			end
+
+			row.Text:SetPoint('RIGHT', row, 'CENTER', CANVAS_LABEL_X + CANVAS_CONTROL_SHIFT, 0)
+
+			function row:EvaluateState()
+				local enabled = isLinkEnabled(link)
+				self:DisplayEnabled(enabled)
+
+				for _, swatch in ipairs(self.huddleSwatches) do
+					swatch:SetEnabled(enabled)
+					swatch:SetAlpha(enabled and 1 or 0.4)
+					swatch.Text:SetTextColor((enabled and NORMAL_FONT_COLOR or GRAY_FONT_COLOR):GetRGB())
+					swatch:Refresh()
 				end
 			end
 
@@ -1122,6 +1221,17 @@ ns:RegisterSettings('MyAddOnDB', {
 		createControl = function(rowFrame) -- a SettingsListElementTemplate row; rowFrame.Text is its label
 			return ns:CreateToggle(rowFrame, '', getValue, setValue) -- any frame; anchored to the row's right side
 		end,
+	},
+	{
+		-- several color swatches sharing one row, in fixed columns so swatches line up across rows
+		type = 'colors',
+		title = 'My Colors',
+		requires = 'myToggle', -- (optional) same dependency handling as a keyed setting
+		-- left-click opens the color picker, right-click resets that one color to its default
+		settings = {
+			{key = 'myColorA', title = 'First', default = 'ffff0000'},
+			{key = 'myColorB', title = 'Second', default = 'ff00ff00', hasOpacity = true}, -- (optional) opacity slider
+		},
 	},
 	{
 		-- several checkboxes sharing one row. The first sits exactly where a lone 'toggle' would,
@@ -1563,14 +1673,15 @@ function ns:CreateToggle(parent, label, getValue, setValue)
 	return checkbox
 end
 
---[[ namespace:CreateColorSwatch(_parent_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
+--[[ namespace:CreateColorSwatch(_parent_, _getValue_, _setValue_[, _hasOpacity_]) ![](https://img.shields.io/badge/function-blue)
 Creates Blizzard's own `ColorSwatchTemplate`, sized to match `namespace:CreateToggle`. Clicking it
-opens the color picker. `getValue` returns and `setValue` receives `r, g, b`; cancelling the picker
-hands back the previous color. Call `swatch:Refresh()` to redraw it after the value changed
+opens the color picker. `getValue` returns and `setValue` receives `r, g, b`, plus `a` with
+`hasOpacity`, which also shows the picker's opacity slider; cancelling the picker hands back the
+previous color. Call `swatch:Refresh()` to redraw it after the value changed
 elsewhere.
 
 The swatch is sized in whole physical pixels with its rings inset from the outer square, so they stay
-one pixel wide wherever the swatch lands.
+one pixel wide as long as the swatch itself starts on a whole pixel; see `namespace:SnapToPixelGrid`.
 --]]
 local SWATCH_WIDTH = 30
 local SWATCH_HEIGHT = 29
@@ -1591,7 +1702,7 @@ local function sizeSwatch(swatch)
 	insetSwatchTexture(swatch.Color, swatch.SwatchBg, 2 * pixel)
 end
 
-function ns:CreateColorSwatch(parent, getValue, setValue)
+function ns:CreateColorSwatch(parent, getValue, setValue, hasOpacity)
 	ns:ArgCheck(getValue, 2, 'function')
 	ns:ArgCheck(setValue, 3, 'function')
 
@@ -1601,15 +1712,20 @@ function ns:CreateColorSwatch(parent, getValue, setValue)
 	sizeSwatch(swatch)
 
 	function swatch:Refresh()
-		self:SetColorRGB(getValue())
+		local r, g, b, a = getValue()
+		self:SetColorRGB(r, g, b)
+		self.Color:SetAlpha(a or 1)
 	end
 
-	local info = {}
+	local info = {hasOpacity = hasOpacity}
 
 	info.swatchFunc = function()
-		setValue(ColorPickerFrame:GetColorRGB())
+		local r, g, b = ColorPickerFrame:GetColorRGB()
+		setValue(r, g, b, hasOpacity and ColorPickerFrame:GetColorAlpha() or nil)
 		swatch:Refresh()
 	end
+
+	info.opacityFunc = info.swatchFunc
 
 	info.cancelFunc = function()
 		setValue(ColorPickerFrame:GetPreviousValues())
@@ -1617,7 +1733,7 @@ function ns:CreateColorSwatch(parent, getValue, setValue)
 	end
 
 	swatch:SetScript('OnClick', function()
-		info.r, info.g, info.b = getValue()
+		info.r, info.g, info.b, info.opacity = getValue()
 		ColorPickerFrame:SetupColorPickerAndShow(info)
 	end)
 
