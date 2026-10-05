@@ -2013,6 +2013,8 @@ local function SetupPanelPieceVisuals(container, piece, setup, pieceLayout)
 		piece:SetTexture(pieceLayout.file)
 		piece:SetTexCoord(pieceLayout.left, pieceLayout.right, pieceLayout.top, pieceLayout.bottom)
 		ns:SetSize(piece, pieceLayout.width, pieceLayout.height)
+	elseif pieceLayout.atlas then
+		piece:SetAtlas(pieceLayout.atlas)
 	else
 		piece:SetColorTexture(1, 1, 1, 1)
 	end
@@ -2033,6 +2035,16 @@ local PANEL_LAYOUT = {
 	RightEdge = { file = PANEL_ART_FILE_VERTICAL, width = 16, height = 16, left = 35 / 128, right = 67 / 128, top = 0, bottom = 1 },
 	Center = { layer = 'BACKGROUND', x = -12, y = 12, x1 = 12, y1 = -11 },
 }
+
+--[[ namespace:GetPanelLayout() ![](https://img.shields.io/badge/function-blue)
+Returns the rounded chat bubble nine-slice layout the tab strip pills and insets use, for
+`NineSliceUtil.ApplyLayout`. Its border pieces carry no fill, so the center color alone decides the
+background, alpha included. Copy it to change a piece; a piece may name an `atlas` instead of a `file`, as the
+center does when given one.
+--]]
+function ns:GetPanelLayout()
+	return PANEL_LAYOUT
+end
 
 --[[ namespace:CreateSectionHeader(_parent_, _title_) ![](https://img.shields.io/badge/function-blue)
 Creates a section header for use inside a settings page - a `GameFontHighlightLarge` caption with an
