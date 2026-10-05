@@ -210,10 +210,15 @@ local function initCanvasRow(row, initializer)
 end
 
 local function resolveLink(info)
+	local value = info.requiresValue
+	if value ~= nil and type(value) ~= 'table' then
+		value = {value}
+	end
+
 	if info.requires then
-		return {key = info.requires, gated = true, indent = true}
+		return {key = info.requires, gated = true, indent = true, value = value}
 	elseif info.gatedBy then
-		return {key = info.gatedBy, gated = true}
+		return {key = info.gatedBy, gated = true, value = value}
 	elseif info.parent then
 		return {key = info.parent, indent = true}
 	end
@@ -223,7 +228,15 @@ local function isChainEnabled(links, settingsByKey, link)
 	while link do
 		if link.gated then
 			local setting = settingsByKey[link.key]
-			if not (setting and setting:GetValue()) then
+			if not setting then
+				return false
+			end
+
+			if link.value then
+				if not tContains(link.value, setting:GetValue()) then
+					return false
+				end
+			elseif not setting:GetValue() then
 				return false
 			end
 		end
@@ -902,7 +915,7 @@ local function applyDependencies(settings, keys, initializers, links, settingsBy
 	for key, link in next, links do
 		assert(not not keys[link.key], string.format("setting '%s' can't depend on invalid setting '%s'", key, link.key))
 
-		if link.gated then
+		if link.gated and link.value == nil then
 			assert(settings[keys[link.key]].type == 'toggle', string.format("setting '%s' can't depend on a non-toggle setting", key))
 		end
 
@@ -1050,7 +1063,7 @@ ns:RegisterSettings('MyAddOnDB', {
 		maxValue = 1.0,
 		valueStep = 0.01, -- (optional) step value, defaults to 1
 		valueFormat = formatter, -- (optional) callback function or a string for string.format
-		requires = 'myToggle', -- (optional) dependency on another setting (must be a "toggle")
+		requires = 'myToggle', -- (optional) dependency on another setting (must be a "toggle", unless requiresValue is set)
 	},
 	{
 		key = 'myMenu',
@@ -1065,6 +1078,7 @@ ns:RegisterSettings('MyAddOnDB', {
 		},
 		parent = 'mySlider', -- (optional) set another setting as its parent (indents this setting)
 		gatedBy = 'myToggle', -- (optional) like "requires", but without indenting this setting
+		requiresValue = 'key1', -- (optional) with requires/gatedBy, enabled only while that setting has this value, or one of a list of values; any setting type
 	},
 	{
 		key = 'myColor',
