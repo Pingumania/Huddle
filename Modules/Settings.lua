@@ -143,6 +143,8 @@ local CANVAS_SPACING = 9
 
 local CANVAS_COLUMN_GAP = 8
 local CANVAS_SCROLL_INSET = -15
+local CANVAS_SCROLL_RIGHT = -20
+local CANVAS_SCROLL_Y = -2
 local CANVAS_CONTROL_SHIFT = 40
 local CANVAS_LABEL_X = -85
 
@@ -353,12 +355,15 @@ local function createCanvasSection(parent, info, relayout)
 	return row, data
 end
 
+local DESCRIPTION_INSET = 7
+
 local function createCanvasDescription(parent, info)
 	local row = CreateFrame('Frame', nil, parent)
 
 	row.huddleText = row:CreateFontString(nil, 'ARTWORK', 'GameFontHighlight')
 	row.huddleText:SetJustifyH('LEFT')
-	row.huddleText:SetPoint('TOPLEFT')
+	row.huddleText:SetPoint('TOPLEFT', DESCRIPTION_INSET, 0)
+	row.huddleText:SetTextColor(GRAY_FONT_COLOR:GetRGB())
 	row.huddleText:SetText(info.title)
 
 	row:SetHeight(1)
@@ -394,13 +399,13 @@ end
 
 local function renderCanvasSettings(canvas, category, savedvariable, settings)
 	local scroll = CreateFrame('ScrollFrame', nil, canvas)
-	scroll:SetPoint('TOPLEFT', CANVAS_SCROLL_INSET, -CANVAS_PAD_TOP)
-	scroll:SetPoint('BOTTOMRIGHT', -22, 0)
+	scroll:SetPoint('TOPLEFT', canvas:GetParent().Header, 'BOTTOMLEFT', CANVAS_SCROLL_INSET, CANVAS_SCROLL_Y)
+	scroll:SetPoint('BOTTOMRIGHT', canvas:GetParent(), 'BOTTOMRIGHT', CANVAS_SCROLL_RIGHT, CANVAS_SCROLL_Y)
 	scroll:EnableMouseWheel(true)
 
 	local scrollBar = CreateFrame('EventFrame', nil, canvas, 'MinimalScrollBar')
-	scrollBar:SetPoint('TOPLEFT', scroll, 'TOPRIGHT', 8, 0)
-	scrollBar:SetPoint('BOTTOMLEFT', scroll, 'BOTTOMRIGHT', 8, 0)
+	scrollBar:SetPoint('TOPLEFT', scroll, 'TOPRIGHT', 0, -4)
+	scrollBar:SetPoint('BOTTOMLEFT', scroll, 'BOTTOMRIGHT', -1, 7)
 
 	local content = CreateFrame('Frame', nil, scroll)
 	content:SetSize(1, 1)
@@ -496,15 +501,15 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 
 			if shown then
 				if row.huddleText and width > 0 then
-					row.huddleText:SetWidth(width)
-					row:SetHeight(row.huddleText:GetStringHeight() + CANVAS_SPACING)
+					row.huddleText:SetWidth(width - DESCRIPTION_INSET)
+					row:SetHeight(row.huddleText:GetStringHeight())
 				end
 
 				visible[#visible + 1] = row
 			end
 		end
 
-		local columnOffsets = {0, 0}
+		local columnOffsets = {CANVAS_PAD_TOP, CANVAS_PAD_TOP}
 		local column = 1
 
 		for _, block in ipairs(collectBlocks(visible)) do
@@ -524,7 +529,7 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end
 		end
 
-		local offset = math.max(columnOffsets[1], columnOffsets[2])
+		local offset = math.max(columnOffsets[1], columnOffsets[2]) - CANVAS_SPACING + CANVAS_PAD_TOP
 		content:SetHeight(math.max(offset, 1))
 		scrollBar:SetShown(content:GetHeight() > scroll:GetHeight() + 1)
 		snapSwatches()
@@ -1314,7 +1319,7 @@ end
 
 --[[ namespace:RegisterSubSettings(_name_, _settings_) ![](https://img.shields.io/badge/function-blue)
 Registers a set of `settings` as a sub-category. `name` must be unique.
-The savedvariables will be stored under the main savedvariables in a table entry named after `name`.
+Its values are stored in the main savedvariables, next to the root settings.
 
 The `settings` are identical to that of `namespace:RegisterSettings`.
 --]]
@@ -1952,7 +1957,7 @@ end
 --[[ namespace:CreateSettingsHeader(_parent_, _title_) ![](https://img.shields.io/badge/function-blue)
 Creates the content header the settings panel draws above a page - a `GameFontHighlightHuge` title,
 a Defaults button at the top right, a Reload UI button left of it and an `Options_HorizontalDivider`
-along the bottom, at Blizzard's own offsets. Anchored to the top of `parent`.
+below it, at Blizzard's own size and offsets. Anchored to the top of `parent`.
 
 The header carries `Title`, `DefaultsButton` and `ReloadButton`. The Defaults button starts hidden,
 since a page without a defaults handler has nothing to reset.
@@ -1994,8 +1999,7 @@ function ns:CreateSettingsHeader(parent, title)
 
 	local divider = header:CreateTexture(nil, 'ARTWORK')
 	divider:SetAtlas('Options_HorizontalDivider', TextureKitConstants.UseAtlasSize)
-	divider:SetPoint('BOTTOMLEFT')
-	divider:SetPoint('BOTTOMRIGHT')
+	divider:SetPoint('TOP', 0, -HEADER_HEIGHT)
 
 	return header
 end
