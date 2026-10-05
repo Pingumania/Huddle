@@ -105,6 +105,8 @@ local SECTION_LABEL_GAP = 4
 local SECTION_TOGGLE_SCALE = 0.75
 
 local PREVIEW_HEIGHT = 195
+local INPUT_WIDTH = 150
+local INPUT_TOGGLE_GAP = 8
 
 local settingsRegistry = {}
 
@@ -151,6 +153,7 @@ local CANVAS_CONTROL_ANCHORS = {
 	color = {key = 'ColorSwatch', x = -73, y = 0},
 	custom = {key = 'customControl', x = -48, y = 3},
 	media = {key = 'customControl', x = -48, y = 3},
+	input = {key = 'customControl', x = -43, y = 0},
 }
 
 local function shiftCanvasControl(row, info)
@@ -178,7 +181,7 @@ local CANVAS_TEMPLATES = {
 	color = 'SettingsColorSwatchControlTemplate',
 }
 
-local CANVAS_TYPES = {custom = true, description = true, media = true, preview = true, section = true, toggles = true}
+local CANVAS_TYPES = {colors = true, custom = true, description = true, input = true, media = true, preview = true, section = true, toggles = true}
 
 local TOGGLES_GAP = 24
 local TOGGLES_INDENT = 21
@@ -661,6 +664,63 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end)
 
 			bindSetting(info.key, setting)
+		elseif info.type == 'input' then
+			local setting = createSetting(category, savedvariable, info)
+			local link = resolveLink(info)
+			links[info.key] = link
+			settingsByKey[info.key] = setting
+
+			local toggleSetting
+			if info.toggleKey then
+				toggleSetting = createSetting(category, savedvariable,
+					{key = info.toggleKey, type = 'toggle', title = info.title, default = not not info.toggleDefault})
+				links[info.toggleKey] = link
+				settingsByKey[info.toggleKey] = toggleSetting
+			end
+
+			row = createCustomRow(info, function(rowFrame)
+				local editBox = ns:CreateEditBox(rowFrame, function()
+					return setting:GetValue()
+				end, function(value)
+					setting:SetValue(value)
+				end, true)
+				editBox:SetWidth(INPUT_WIDTH)
+				return editBox
+			end)
+
+			if toggleSetting then
+				local checkbox = CreateFrame('CheckButton', nil, row, 'SettingsCheckboxTemplate')
+				checkbox:SetFrameLevel(row.Tooltip:GetFrameLevel() + 1)
+				checkbox:Init(toggleSetting:GetValue())
+				checkbox:RegisterCallback('OnValueChanged', function(_, value)
+					toggleSetting:SetValue(not not value)
+				end, checkbox)
+				checkbox:SetPoint('LEFT', row, 'CENTER',
+					CANVAS_CONTROL_ANCHORS.toggle.x + CANVAS_CONTROL_SHIFT, CANVAS_CONTROL_ANCHORS.toggle.y)
+
+				row.customControl:ClearAllPoints()
+				row.customControl:SetPoint('LEFT', checkbox, 'RIGHT', INPUT_TOGGLE_GAP, 0)
+				row.huddleToggle = checkbox
+
+				bindSetting(info.toggleKey, toggleSetting, checkbox)
+			end
+
+			local evaluateState = row.EvaluateState
+			function row:EvaluateState()
+				evaluateState(self)
+
+				if self.huddleToggle then
+					local enabled = isLinkEnabled(link)
+					self.huddleToggle:SetEnabled(enabled)
+					self.customControl:SetEnabled(enabled and toggleSetting:GetValue())
+				end
+
+				if not (self.customControl:HasFocus() or self.customControl.SaveButton:IsShown()) then
+					self.customControl:Refresh()
+				end
+			end
+
+			bindSetting(info.key, setting)
 		elseif info.type == 'toggles' then
 			ns:ArgCheck(info.settings, 3, 'table')
 
@@ -1021,6 +1081,14 @@ ns:RegisterSettings('MyAddOnDB', {
 		mediaType = 'font', -- 'font', 'statusbar' or 'sound'
 		title = 'My Font',
 		default = 'Friz Quadrata TT',
+	},
+	{
+		key = 'myText',
+		type = 'input', -- a single-line text field, see namespace:CreateEditBox
+		title = 'My Text',
+		default = '',
+		toggleKey = 'useMyText', -- (optional) a checkbox in front of the field; the field is only editable while checked
+		toggleDefault = false, -- (optional) default of the toggleKey setting
 	},
 	{
 		type = 'header',
@@ -1976,10 +2044,13 @@ function ns:CreateCategoryButton(parent, label, onClick)
 	return button
 end
 
---[[ namespace:CreateEditBox(_parent_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
+--[[ namespace:CreateEditBox(_parent_, _getValue_, _setValue_[, _showSaveButton_]) ![](https://img.shields.io/badge/function-blue)
 Creates a single-line text field (Blizzard's own `InputBoxTemplate`). `getValue`/`setValue` read/write
 the string; `setValue` runs on enter, and escape restores the stored value. The box carries
 `Refresh()`, for pushing an externally changed value back into it.
+
+With `showSaveButton`, a Save button appears to the right of the box while its text differs from the
+stored value, and clicking it does the same as enter. It is exposed as `editBox.SaveButton`.
 
 Usage:
 ```lua
@@ -1993,8 +2064,10 @@ editBox:SetPoint('TOPLEFT')
 --]]
 local EDITBOX_WIDTH = 250
 local EDITBOX_HEIGHT = 20
+local EDITBOX_BUTTON_GAP = 6
+local EDITBOX_BUTTON_PADDING = 24
 
-function ns:CreateEditBox(parent, getValue, setValue)
+function ns:CreateEditBox(parent, getValue, setValue, showSaveButton)
 	ns:ArgCheck(getValue, 2, 'function')
 	ns:ArgCheck(setValue, 3, 'function')
 
@@ -2004,20 +2077,55 @@ function ns:CreateEditBox(parent, getValue, setValue)
 	editBox:SetFontObject('ChatFontNormal')
 	editBox:SetText(getValue() or '')
 
+	local function UpdateSaveButton()
+		if editBox.SaveButton then
+			editBox.SaveButton:SetShown(editBox:GetText() ~= (getValue() or ''))
+		end
+	end
+
+	local function Save()
+		setValue(editBox:GetText())
+		editBox:ClearFocus()
+		UpdateSaveButton()
+	end
+
 	function editBox:Refresh()
 		self:SetText(getValue() or '')
 		self:SetCursorPosition(0)
+		UpdateSaveButton()
 	end
 
-	editBox:SetScript('OnEnterPressed', function(self)
-		setValue(self:GetText())
-		self:ClearFocus()
-	end)
+	function editBox:SetEnabled(enabled)
+		GetEditBoxMetatable().__index.SetEnabled(self, enabled)
+		self:SetTextColor((enabled and HIGHLIGHT_FONT_COLOR or GRAY_FONT_COLOR):GetRGB())
+	end
+
+	function editBox:Enable()
+		self:SetEnabled(true)
+	end
+
+	function editBox:Disable()
+		self:SetEnabled(false)
+	end
+
+	editBox:SetScript('OnEnterPressed', Save)
 
 	editBox:SetScript('OnEscapePressed', function(self)
 		self:Refresh()
 		self:ClearFocus()
 	end)
+
+	if showSaveButton then
+		local button = CreateFrame('Button', nil, editBox, 'UIPanelButtonTemplate')
+		button:SetText(SAVE)
+		button:SetSize(button:GetTextWidth() + EDITBOX_BUTTON_PADDING, EDITBOX_HEIGHT + 2)
+		button:SetPoint('LEFT', editBox, 'RIGHT', EDITBOX_BUTTON_GAP, 0)
+		button:SetScript('OnClick', Save)
+		button:Hide()
+		editBox.SaveButton = button
+
+		editBox:SetScript('OnTextChanged', UpdateSaveButton)
+	end
 
 	editBox:SetCursorPosition(0)
 
