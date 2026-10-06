@@ -70,6 +70,9 @@ do
 		local frame = CreateFrame('Frame')
 
 		frame.Header = ns:CreateSettingsHeader(frame, name or ADDON_NAME)
+		frame:SetScript('OnShow', function()
+			frame.Header.ReloadButton:SetShown(next(reloadRequired) ~= nil)
+		end)
 
 		local canvas = Mixin(CreateFrame('Frame', nil, frame), canvasMixin)
 		canvas:SetPoint('BOTTOMLEFT', 0, 5)
@@ -1959,8 +1962,8 @@ Creates the content header the settings panel draws above a page - a `GameFontHi
 a Defaults button at the top right, a Reload UI button left of it and an `Options_HorizontalDivider`
 below it, at Blizzard's own size and offsets. Anchored to the top of `parent`.
 
-The header carries `Title`, `DefaultsButton` and `ReloadButton`. The Defaults button starts hidden,
-since a page without a defaults handler has nothing to reset.
+The header carries `Title`, `DefaultsButton` and `ReloadButton`. Both buttons start hidden. The
+settings panel shows the Reload UI button when a setting is marked `requiresReload`.
 
 Usage:
 ```lua
@@ -1996,6 +1999,7 @@ function ns:CreateSettingsHeader(parent, title)
 	header.ReloadButton:SetSize(HEADER_BUTTON_WIDTH, HEADER_BUTTON_HEIGHT)
 	header.ReloadButton:SetText(RELOADUI)
 	header.ReloadButton:SetScript('OnClick', ReloadUI)
+	header.ReloadButton:Hide()
 
 	local divider = header:CreateTexture(nil, 'ARTWORK')
 	divider:SetAtlas('Options_HorizontalDivider', TextureKitConstants.UseAtlasSize)
