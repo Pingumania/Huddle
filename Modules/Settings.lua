@@ -1681,12 +1681,13 @@ function ns:CreateToggle(parent, label, getValue, setValue)
 	return checkbox
 end
 
---[[ namespace:CreateColorSwatch(_parent_, _getValue_, _setValue_[, _hasOpacity_]) ![](https://img.shields.io/badge/function-blue)
+--[[ namespace:CreateColorSwatch(_parent_, _getValue_, _setValue_[, _hasOpacity_][, _commitOnOkay_]) ![](https://img.shields.io/badge/function-blue)
 Creates Blizzard's own `ColorSwatchTemplate`, sized to match `namespace:CreateToggle`. Clicking it
 opens the color picker. `getValue` returns and `setValue` receives `r, g, b`, plus `a` with
 `hasOpacity`, which also shows the picker's opacity slider; cancelling the picker hands back the
-previous color. Call `swatch:Refresh()` to redraw it after the value changed
-elsewhere.
+previous color. With `commitOnOkay`, `setValue` is only called once the picker closes with Okay;
+picking colors only previews them on the swatch. Call `swatch:Refresh()` to redraw it after the value
+changed elsewhere.
 
 The swatch is sized in whole physical pixels with its rings inset from the outer square, so they stay
 one pixel wide as long as the swatch itself starts on a whole pixel; see `namespace:SnapToPixelGrid`.
@@ -1710,7 +1711,17 @@ local function sizeSwatch(swatch)
 	insetSwatchTexture(swatch.Color, swatch.SwatchBg, 2 * pixel)
 end
 
-function ns:CreateColorSwatch(parent, getValue, setValue, hasOpacity)
+local pendingCommit, hooked
+
+local function commitPendingColor()
+	if pendingCommit then
+		local commit = pendingCommit
+		pendingCommit = nil
+		commit()
+	end
+end
+
+function ns:CreateColorSwatch(parent, getValue, setValue, hasOpacity, commitOnOkay)
 	ns:ArgCheck(getValue, 2, 'function')
 	ns:ArgCheck(setValue, 3, 'function')
 
@@ -1726,22 +1737,54 @@ function ns:CreateColorSwatch(parent, getValue, setValue, hasOpacity)
 	end
 
 	local info = {hasOpacity = hasOpacity}
+	local pending
 
 	info.swatchFunc = function()
 		local r, g, b = ColorPickerFrame:GetColorRGB()
-		setValue(r, g, b, hasOpacity and ColorPickerFrame:GetColorAlpha() or nil)
-		swatch:Refresh()
+		local a = hasOpacity and ColorPickerFrame:GetColorAlpha() or nil
+
+		if commitOnOkay then
+			pending = {r, g, b, a}
+			swatch:SetColorRGB(r, g, b)
+			swatch.Color:SetAlpha(a or 1)
+		else
+			setValue(r, g, b, a)
+			swatch:Refresh()
+		end
 	end
 
 	info.opacityFunc = info.swatchFunc
 
 	info.cancelFunc = function()
-		setValue(ColorPickerFrame:GetPreviousValues())
+		if commitOnOkay then
+			pending = nil
+		else
+			setValue(ColorPickerFrame:GetPreviousValues())
+		end
+
 		swatch:Refresh()
 	end
 
 	swatch:SetScript('OnClick', function()
 		info.r, info.g, info.b, info.opacity = getValue()
+		pending = nil
+
+		if commitOnOkay then
+			if not hooked then
+				hooked = true
+				ColorPickerFrame:HookScript('OnHide', commitPendingColor)
+			end
+
+			pendingCommit = function()
+				if pending and ColorPickerFrame.swatchFunc == info.swatchFunc then
+					setValue(unpack(pending))
+					pending = nil
+				end
+
+				swatch:Refresh()
+			end
+		end
+
 		ColorPickerFrame:SetupColorPickerAndShow(info)
 	end)
 
