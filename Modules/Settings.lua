@@ -68,6 +68,7 @@ do
 
 	function createCanvas(name)
 		local frame = CreateFrame('Frame')
+		frame:Hide()
 
 		frame.Header = ns:CreateSettingsHeader(frame, name or ADDON_NAME)
 		function frame:OnRefresh()
@@ -1707,6 +1708,8 @@ local function sizeSwatch(swatch)
 	local size = Round(SWATCH_SIZE / pixel) * pixel
 
 	swatch.SwatchBg:SetSize(size, size)
+	swatch.SwatchBg:ClearAllPoints()
+	swatch.SwatchBg:SetPoint('BOTTOMLEFT', Round((SWATCH_WIDTH - SWATCH_SIZE) / 2 / pixel) * pixel, Round((SWATCH_HEIGHT - SWATCH_SIZE) / 2 / pixel) * pixel)
 	insetSwatchTexture(swatch.InnerBorder, swatch.SwatchBg, pixel)
 	insetSwatchTexture(swatch.Color, swatch.SwatchBg, 2 * pixel)
 end
