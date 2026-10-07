@@ -2957,6 +2957,32 @@ function ns:CreateTabContainer(parent, height)
 	return container
 end
 
+--[[ namespace:CreateAtlasButton(_parent_, _atlas_, _onClick_) ![](https://img.shields.io/badge/function-blue)
+Creates a button drawn from an atlas family: `atlas` for the normal state and its `-pressed`,
+`-highlight` and `-disabled` variants. `onClick` is called with the button when clicked.
+
+Usage:
+```lua
+local button = namespace:CreateAtlasButton(parent, '128-RedButton-Plus', function()
+	ns:AddThing()
+end)
+button:SetSize(22, 22)
+```
+--]]
+function ns:CreateAtlasButton(parent, atlas, onClick)
+	ns:ArgCheck(atlas, 2, 'string')
+	ns:ArgCheck(onClick, 3, 'function')
+
+	local button = CreateFrame('Button', nil, parent)
+	button:SetNormalAtlas(atlas)
+	button:SetPushedAtlas(atlas .. '-Pressed')
+	button:SetHighlightAtlas(atlas .. '-Highlight', 'ADD')
+	button:SetDisabledAtlas(atlas .. '-Disabled')
+	button:SetScript('OnClick', onClick)
+
+	return button
+end
+
 --[[ namespace:CreateButton(_parent_, _text_, _onClick_) ![](https://img.shields.io/badge/function-blue)
 Creates a standard `UIPanelButtonTemplate` button. `onClick` is called with the button when clicked.
 
