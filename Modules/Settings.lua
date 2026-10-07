@@ -2960,28 +2960,32 @@ function ns:CreateTabContainer(parent, height)
 	return container
 end
 
---[[ namespace:CreateAtlasButton(_parent_, _atlas_, _onClick_) ![](https://img.shields.io/badge/function-blue)
-Creates a button drawn from an atlas family: `atlas` for the normal state and its `-pressed`,
-`-highlight` and `-disabled` variants. `onClick` is called with the button when clicked.
+--[[ namespace:CreateTextureButton(_parent_, _texture_, _onClick_) ![](https://img.shields.io/badge/function-blue)
+Creates a button drawn from `texture`, with the same texture as an additive highlight and shifted
+down-right while pressed. `onClick` is called with the button when clicked.
 
 Usage:
 ```lua
-local button = namespace:CreateAtlasButton(parent, '128-RedButton-Plus', function()
+local button = namespace:CreateTextureButton(parent, 'Interface\\AddOns\\MyAddon\\Media\\plus', function()
 	ns:AddThing()
 end)
-button:SetSize(22, 22)
+button:SetSize(16, 16)
 ```
 --]]
-function ns:CreateAtlasButton(parent, atlas, onClick)
-	ns:ArgCheck(atlas, 2, 'string')
+function ns:CreateTextureButton(parent, texture, onClick)
+	ns:ArgCheck(texture, 2, 'string')
 	ns:ArgCheck(onClick, 3, 'function')
 
 	local button = CreateFrame('Button', nil, parent)
-	button:SetNormalAtlas(atlas)
-	button:SetPushedAtlas(atlas .. '-Pressed')
-	button:SetHighlightAtlas(atlas .. '-Highlight', 'ADD')
-	button:SetDisabledAtlas(atlas .. '-Disabled')
+	button:SetNormalTexture(texture)
+	button:SetPushedTexture(texture)
+	button:SetHighlightTexture(texture, 'ADD')
 	button:SetScript('OnClick', onClick)
+
+	local pushed = button:GetPushedTexture()
+	pushed:ClearAllPoints()
+	pushed:SetPoint('TOPLEFT', 1, -1)
+	pushed:SetPoint('BOTTOMRIGHT', 1, -1)
 
 	return button
 end
