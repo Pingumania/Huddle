@@ -70,9 +70,9 @@ do
 		local frame = CreateFrame('Frame')
 
 		frame.Header = ns:CreateSettingsHeader(frame, name or ADDON_NAME)
-		frame:SetScript('OnShow', function()
-			frame.Header.ReloadButton:SetShown(next(reloadRequired) ~= nil)
-		end)
+		function frame:OnRefresh()
+			self.Header.ReloadButton:SetShown(next(reloadRequired) ~= nil)
+		end
 
 		local canvas = Mixin(CreateFrame('Frame', nil, frame), canvasMixin)
 		canvas:SetPoint('BOTTOMLEFT', 0, 5)
