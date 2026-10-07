@@ -2055,8 +2055,8 @@ function ns:CreateSettingsHeader(parent, title)
 end
 
 local PANEL_ART_PATH = 'Interface/AddOns/' .. ADDON_NAME .. '/Libs/Huddle/'
-local PANEL_ART_FILE = PANEL_ART_PATH .. 'chatbubble-no-background.blp'
-local PANEL_ART_FILE_VERTICAL = PANEL_ART_PATH .. 'chatbubblevertical-no-background.blp'
+local PANEL_ART_FILE = PANEL_ART_PATH .. 'chatbubble-no-background.tga'
+local PANEL_ART_FILE_VERTICAL = PANEL_ART_PATH .. 'chatbubblevertical-no-background.tga'
 
 local function SetupPanelPieceVisuals(container, piece, setup, pieceLayout)
 	if pieceLayout.file then
