@@ -2990,6 +2990,36 @@ function ns:CreateTextureButton(parent, texture, onClick)
 	return button
 end
 
+--[[ namespace:CreatePlusButton(_parent_, _onClick_) ![](https://img.shields.io/badge/function-blue)
+Same as `namespace:CreateMinusButton`, with the plus texture.
+--]]
+--[[ namespace:CreateMinusButton(_parent_, _onClick_) ![](https://img.shields.io/badge/function-blue)
+Create a 16x16 `namespace:CreateTextureButton` with Huddle's own plus or minus texture.
+
+Usage:
+```lua
+local button = namespace:CreatePlusButton(parent, function()
+	ns:AddThing()
+end)
+```
+--]]
+local LIST_BUTTON_SIZE = 16
+
+local function createListButton(parent, texture, onClick)
+	local button = ns:CreateTextureButton(parent, PANEL_ART_PATH .. texture, onClick)
+	button:SetSize(LIST_BUTTON_SIZE, LIST_BUTTON_SIZE)
+
+	return button
+end
+
+function ns:CreatePlusButton(parent, onClick)
+	return createListButton(parent, 'common-button-list-plus', onClick)
+end
+
+function ns:CreateMinusButton(parent, onClick)
+	return createListButton(parent, 'common-button-list-minus', onClick)
+end
+
 --[[ namespace:CreateButton(_parent_, _text_, _onClick_) ![](https://img.shields.io/badge/function-blue)
 Creates a standard `UIPanelButtonTemplate` button. `onClick` is called with the button when clicked.
 
