@@ -1567,11 +1567,20 @@ do
 
 		-- TODO: menus also has "new feature" flags/textures, see if we can hook into that
 
+		local function isShown(setting)
+			return not setting.requires or ns:GetOption(setting.requires)
+		end
+
 		Menu.ModifyMenu('MENU_WORLD_MAP_TRACKING', function(_, root)
+			local shown = tFilter(settings, isShown, true)
+			if #shown == 0 then
+				return
+			end
+
 			root:CreateDivider()
 			root:CreateTitle((ADDON_NAME:gsub('(%l)(%u)', '%1 %2')) .. HEADER_COLON)
 
-			for _, setting in next, settings do
+			for _, setting in next, shown do
 				local element
 				if setting.type == 'toggle' then
 					element = root:CreateCheckbox(setting.title, function()
@@ -1625,7 +1634,8 @@ do
 	Registers a set of `settings` to inject into the world map tracking menu.
 	The values will be stored by the `settings`' objects' `key` in `savedvariables`.
 
-	The `settings` object is identical to the one for `namespace:RegisterSettings`.
+	The `settings` object is identical to the one for `namespace:RegisterSettings`. A setting with
+	`requires` is left out of the menu while that option is off.
 	--]]
 	function ns:RegisterMapSettings(savedvariable, settings)
 		ns:ArgCheck(savedvariable, 1, 'string')
