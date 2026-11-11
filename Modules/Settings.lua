@@ -3055,3 +3055,91 @@ function ns:CreateButton(parent, text, onClick)
 
 	return button
 end
+
+--[[ namespace:CreateKeybindButton(_parent_, _binding_) ![](https://img.shields.io/badge/function-blue)
+Creates a button that shows the key bound to the `binding` action (as named in Bindings.xml).
+Left-click and press a key to bind it, right-click to clear it, Escape cancels. The binding is saved to
+the current binding set, so it is the same one shown in the game's own Key Bindings panel.
+
+Usage:
+```lua
+local button = ns:CreateKeybindButton(parent, 'CLICK MyAddOnButton:LeftButton')
+button:SetPoint('TOPLEFT')
+```
+--]]
+local KEYBIND_BUTTON_WIDTH = 160
+local KEYBIND_BUTTON_HEIGHT = 22
+
+local function UpdateKeybindText(button)
+	BindingButtonTemplate_SetupBindingButton(GetBindingKey(button.binding), button)
+end
+
+local function StopKeybindListening(button)
+	button:EnableKeyboard(false)
+	button:SetScript('OnKeyDown', nil)
+	button:SetSelected(false)
+	UpdateKeybindText(button)
+end
+
+local function ClearKeybind(binding)
+	local key1, key2 = GetBindingKey(binding)
+
+	if key1 then
+		SetBinding(key1, nil)
+	end
+
+	if key2 then
+		SetBinding(key2, nil)
+	end
+end
+
+local function OnKeybindKeyDown(button, input)
+	if input == 'ESCAPE' then
+		StopKeybindListening(button)
+		return
+	end
+
+	local key = GetConvertedKeyOrButton(input)
+	if IsKeyPressIgnoredForBinding(key) or InCombatLockdown() then
+		return
+	end
+
+	ClearKeybind(button.binding)
+	SetBinding(CreateKeyChordStringUsingMetaKeyState(key), button.binding)
+	SaveBindings(GetCurrentBindingSet())
+	StopKeybindListening(button)
+end
+
+local function OnKeybindClick(button, mouseButton)
+	if InCombatLockdown() then
+		return
+	end
+
+	if mouseButton == 'RightButton' then
+		ClearKeybind(button.binding)
+		SaveBindings(GetCurrentBindingSet())
+		StopKeybindListening(button)
+		return
+	end
+
+	button:SetSelected(true)
+	button:SetText(PRESS_KEY_TO_BIND)
+	button:EnableKeyboard(true)
+	button:SetPropagateKeyboardInput(false)
+	button:SetScript('OnKeyDown', OnKeybindKeyDown)
+end
+
+function ns:CreateKeybindButton(parent, binding)
+	ns:ArgCheck(binding, 2, 'string')
+
+	local button = CreateFrame('Button', nil, parent, 'KeyBindingFrameBindingButtonTemplate')
+	button:SetSize(KEYBIND_BUTTON_WIDTH, KEYBIND_BUTTON_HEIGHT)
+	button:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+	button:SetScript('OnClick', OnKeybindClick)
+	button:SetScript('OnShow', UpdateKeybindText)
+	button:SetScript('OnHide', StopKeybindListening)
+	button.binding = binding
+	UpdateKeybindText(button)
+
+	return button
+end
