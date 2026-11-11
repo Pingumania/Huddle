@@ -161,6 +161,7 @@ local CANVAS_CONTROL_ANCHORS = {
 	custom = {key = 'customControl', x = -48, y = 3},
 	media = {key = 'customControl', x = -48, y = 3},
 	input = {key = 'customControl', x = -43, y = 0},
+	keybind = {key = 'customControl', x = -80, y = 0},
 }
 
 local function shiftCanvasControl(row, info)
@@ -188,7 +189,7 @@ local CANVAS_TEMPLATES = {
 	color = 'SettingsColorSwatchControlTemplate',
 }
 
-local CANVAS_TYPES = {colors = true, custom = true, description = true, input = true, media = true, preview = true, section = true, toggles = true}
+local CANVAS_TYPES = {colors = true, custom = true, description = true, input = true, keybind = true, media = true, preview = true, section = true, toggles = true}
 
 local TOGGLES_GAP = 24
 local COLORS_COLUMN_WIDTH = 110
@@ -712,6 +713,12 @@ local function renderCanvasSettings(canvas, category, savedvariable, settings)
 			end)
 
 			bindSetting(info.key, setting)
+		elseif info.type == 'keybind' then
+			ns:ArgCheck(info.binding, 3, 'string')
+
+			row = createCustomRow(info, function(rowFrame)
+				return ns:CreateKeybindButton(rowFrame, info.binding)
+			end)
 		elseif info.type == 'input' then
 			local setting = createSetting(category, savedvariable, info)
 			local link = resolveLink(info)
@@ -1211,6 +1218,11 @@ ns:RegisterSettings('MyAddOnDB', {
 		default = '',
 		toggleKey = 'useMyText', -- (optional) a checkbox in front of the field; the field is only editable while checked
 		toggleDefault = false, -- (optional) default of the toggleKey setting
+	},
+	{
+		type = 'keybind', -- a key binding button, see namespace:CreateKeybindButton
+		binding = 'CLICK MyAddOnButton:LeftButton', -- the binding action, as named in Bindings.xml
+		title = 'My Binding',
 	},
 	{
 		type = 'header',
