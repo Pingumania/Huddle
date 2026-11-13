@@ -1207,7 +1207,7 @@ ns:RegisterSettings('MyAddOnDB', {
 	{
 		key = 'myFont',
 		type = 'media', -- a LibSharedMedia-3.0 dropdown, see namespace:CreateMediaDropdown
-		mediaType = 'font', -- 'font', 'statusbar' or 'sound'
+		mediaType = 'font', -- 'font', 'statusbar', 'border' or 'sound'
 		title = 'My Font',
 		default = 'Friz Quadrata TT',
 	},
@@ -1929,7 +1929,7 @@ end
 
 --[[ namespace:CreateMediaDropdown(_parent_, _mediaType_, _getValue_, _setValue_) ![](https://img.shields.io/badge/function-blue)
 Creates a `namespace:CreateDropdown` listing every [LibSharedMedia-3.0](https://www.curseforge.com/wow/addons/libsharedmedia-3-0)
-item of `mediaType` ('font', 'statusbar' or 'sound'), with each option previewed - rendered in its own font,
+item of `mediaType` ('font', 'statusbar', 'border' or 'sound'), with each option previewed - rendered in its own font,
 showing its own texture, or played when picked.
 
 `getValue`/`setValue` read/write the selected media name.
@@ -1948,8 +1948,8 @@ function ns:CreateMediaDropdown(parent, mediaType, getValue, setValue)
 	ns:ArgCheck(mediaType, 2, 'string')
 	ns:ArgCheck(getValue, 3, 'function')
 	ns:ArgCheck(setValue, 4, 'function')
-	assert(mediaType == 'font' or mediaType == 'statusbar' or mediaType == 'sound',
-		"mediaType must be 'font', 'statusbar' or 'sound'")
+	assert(mediaType == 'font' or mediaType == 'statusbar' or mediaType == 'border' or mediaType == 'sound',
+		"mediaType must be 'font', 'statusbar', 'border' or 'sound'")
 
 	local LSM = LibStub('LibSharedMedia-3.0', true)
 	assert(LSM, 'LibSharedMedia-3.0 is required for CreateMediaDropdown')
