@@ -11,4 +11,5 @@
 	<Script file='Modules/Format.lua'/>
 	<Script file='Modules/Output.lua'/>
 	<Script file='Modules/Settings.lua'/>
+	<Script file='Modules/EditMode.lua'/>
 </Ui>
